@@ -3,6 +3,9 @@ These are simple cmake base templates I've built up over the years of porting ga
 
 I've included "dummy source code" purely to show directory layouts and to show that the cmake magic works.
 
+## FORCE32 flag
+To ease development of 32bit applications on a 64bit host system (such as on Linux or Mac OS X) I've added a FORCE32 boolean option.. Simply setting it to ON when generating your project will force the library searching and compiler options to find/build 32bit executables.
+
 ## Prebuilt libraries
 
 Often when developing games or porting games using a prebuilt library and including in the SCM tree is preferred as it simplifies getting the build system running across multiple systems and easier to manage updates.  There is a simple "FindPrebuiltLibrary" function to facilitate this searching with a shared prebuilt directory (see UtilityFunctions.cmake).
