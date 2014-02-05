@@ -109,6 +109,11 @@ function(_BuildDynamicTarget name type)
         add_executable(${name} MACOSX_BUNDLE WIN32
             ${_source_files}
         )
+        if(LINUX)
+            set_target_properties(${name} PROPERTIES
+                LINK_FLAGS_RELEASE "-Wl,--allow-shlib-undefined" # Voodoo to ignore the libs that steam_api is linked to (will be resolved at runtime)
+            )
+        endif()
     endif()
     if(_include_dirs)
         _SetDefaultScope(_include_dirs PRIVATE)
