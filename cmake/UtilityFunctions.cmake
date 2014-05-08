@@ -1,25 +1,53 @@
 ### build up utility functions
+include(CheckCCompilerFlag)
+include(CheckCXXCompilerFlag)
 
 ## Find a prebuiltlib
-## Must set a cache/global var of PREBUILT_PLATFORM_ROOT so this function knows where to find the libraries.
+## Must set a cache/global var of PREBUILT_PLATFORM_ROOTS so this function knows where to find the libraries.
 ## the epected structure is simply to have the libs/frameworks in the directory pointed to by that variable.
 ## for multi-arch linux putting libs in two subdirectories of lib and lib64 will allow cmake to find the right ones
 function(FindPrebuiltLibrary result_var libname)
-    if(NOT PREBUILT_PLATFORM_ROOT)
-        message(FATAL_ERROR "Must set PREBUILT_PLATFORM_ROOT before using this function")
+    if(NOT PREBUILT_PLATFORM_ROOTS)
+        message(FATAL_ERROR "Must set PREBUILT_PLATFORM_ROOTS before using this function")
     endif()
+
+    foreach(path ${PREBUILT_PLATFORM_ROOTS})
+        list(APPEND SEARCH_PATHS ${path}/lib ${path})
+    endforeach()
 
     # check prebuilt directory first
     find_library(${result_var}
         NAMES ${libname}
-        PATHS ${PREBUILT_PLATFORM_ROOT}/lib ${PREBUILT_PLATFORM_ROOT}
+        PATHS ${SEARCH_PATHS}
         NO_DEFAULT_PATH)
     # Check system dir
     find_library(${result_var}
         NAMES ${libname})
     if(NOT ${result_var})
-        message(FATAL_ERROR "Could not find library ${libname} in prebuilt folder ${PREBUILT_PLATFORM_ROOT}")
+        message(FATAL_ERROR "Could not find library ${libname} in prebuilt folder ${PREBUILT_PLATFORM_ROOTS}")
     endif()
+endfunction()
+
+function(CheckCFlags outvar)
+    foreach(flag ${ARGN})
+        string(REGEX REPLACE "[^a-zA-Z0-9_]+" "_" cleanflag ${flag})
+        check_cxx_compiler_flag(${flag} CHECK_C_FLAG_${cleanflag})
+        if(CHECK_C_FLAG_${cleanflag})
+            list(APPEND valid ${flag})
+        endif()
+    endforeach()
+    set(${outvar} ${valid} PARENT_SCOPE)
+endfunction()
+
+function(CheckCXXFlags outvar)
+    foreach(flag ${ARGN})
+        string(REGEX REPLACE "[^a-zA-Z0-9_]+" "_" cleanflag ${flag})
+        check_cxx_compiler_flag(${flag} CHECK_CXX_FLAG_${cleanflag})
+        if(CHECK_CXX_FLAG_${cleanflag})
+            list(APPEND valid ${flag})
+        endif()
+    endforeach()
+    set(${outvar} ${valid} PARENT_SCOPE)
 endfunction()
 
 # Helper to ensures a scope has been set for certain target properties
@@ -50,6 +78,8 @@ function(_BuildDynamicTarget name type)
             set(_mode "flags")
         elseif(dir STREQUAL "LINK")
             set(_mode "link")
+        elseif(dir STREQUAL "PROPERTIES")
+            set(_mode "properties")
         else()
             if(_mode STREQUAL "excl")
                 file(GLOB _files RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
@@ -80,6 +110,10 @@ function(_BuildDynamicTarget name type)
                 list(APPEND _link_libs
                     ${dir}
                 )
+            elseif(_mode STREQUAL "properties")
+                list(APPEND _properties
+                    ${dir}
+                )
             elseif(_mode STREQUAL "dirs")
                 file(GLOB _files RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
                     ${dir}/*.c
@@ -102,7 +136,19 @@ function(_BuildDynamicTarget name type)
         message(FATAL_ERROR "Could not find any sources for ${name}")
     endif()
     if(type STREQUAL "lib")
-        add_library(${name} EXCLUDE_FROM_ALL
+        add_library(${name} STATIC EXCLUDE_FROM_ALL
+            ${_source_files}
+        )
+    elseif(type STREQUAL "shared")
+        add_library(${name} SHARED
+            ${_source_files}
+        )
+    elseif(type STREQUAL "object")
+        add_library(${name} OBJECT
+            ${_source_files}
+        )
+    elseif(type STREQUAL "module")
+        add_library(${name} MODULE
             ${_source_files}
         )
     else()
@@ -127,8 +173,14 @@ function(_BuildDynamicTarget name type)
         target_link_libraries(${name} ${_link_libs})
     endif()
     if(_flags)
+        string (REPLACE ";" " " _flags_str "${_flags}")
         set_target_properties(${name} PROPERTIES
-            COMPILE_FLAGS "${_flags}"
+            COMPILE_FLAGS "${_flags_str}"
+        )
+    endif()
+    if(_properties)
+        set_target_properties(${name} PROPERTIES
+            ${_properties}
         )
     endif()
 endfunction()
@@ -137,13 +189,26 @@ endfunction()
 ## 
 ## the parameters are simply the target name followed by a list of directories or other parameters
 ## parameters that can be specified
-## DIRS     followed by a list of directories ..  will glob in *.c, *.cpp, *.h, *.hpp, *.inl
-## EXCLUDE  followed by a list of files/globs to exclude
-## FILES    followed by a list of explicit files to add (or generated files)
-## INCLUDES followed by a list of include directories. These use Generator expressions (see CMAKE documentation) default is PRIVATE scoped
-## DEFINES  followed by a list of compiler defines.  These use Generator expressions (see CMAKE documentation) default is PRIVATE scoped
-## FLAGS    followed by a list of compiler flags
-## LINK     followed by a list of link targets.  Can use Generator expressions (see CMAKE documentation)
+## DIRS       followed by a list of directories ..  will glob in *.c, *.cpp, *.h, *.hpp, *.inl
+## EXCLUDE    followed by a list of files/globs to exclude
+## FILES      followed by a list of explicit files to add (or generated files)
+## INCLUDES   followed by a list of include directories. These use Generator expressions (see CMAKE documentation) default is PRIVATE scoped
+## DEFINES    followed by a list of compiler defines.  These use Generator expressions (see CMAKE documentation) default is PRIVATE scoped
+## FLAGS      followed by a list of compiler flags
+## LINK       followed by a list of link targets.  Can use Generator expressions (see CMAKE documentation)
+## PROPERTIES followed by a list of target properties.
+
+function(CreateSharedLibrary name)
+    _BuildDynamicTarget(${name} shared ${ARGN})
+endfunction()
+
+function(CreateObjectLibrary name)
+    _BuildDynamicTarget(${name} object ${ARGN})
+endfunction()
+
+function(CreateModule name)
+    _BuildDynamicTarget(${name} module ${ARGN})
+endfunction()
 
 function(CreateLibrary name)
     _BuildDynamicTarget(${name} lib ${ARGN})
@@ -172,8 +237,8 @@ if(APPLE)
             "  set(framework_dest \"\${bundle}/Contents/Frameworks\")\n"
             "  foreach(framework_path ${framework_list})\n"
             "    get_filename_component(framework_name \${framework_path} NAME_WE)\n"
-            "    file(MAKE_DIRECTORY \"\${framework_dest}/\${framework_name}.framework/Versions/A/\")\n"
-            "    copy_resolved_framework_into_bundle(\${framework_path}/Versions/A/\${framework_name} \${framework_dest}/\${framework_name}.framework/Versions/A/\${framework_name})\n"
+            "    file(MAKE_DIRECTORY \"\${framework_dest}/\${framework_name}.framework/Versions/\")\n"
+            "    execute_process(COMMAND \${CMAKE_COMMAND} -E copy_directory \${framework_path}/Versions \${framework_dest}/\${framework_name}.framework/Versions)\n"
             "  endforeach()\n"
             "  foreach(lib ${lib_list})\n"
             "    get_filename_component(lib_file \${lib} NAME)\n"

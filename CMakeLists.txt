@@ -6,12 +6,12 @@ set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 include(BoilerPlate)
 
 # this will look for ${source_dir}/prebuilt/linux on linux.
-find_path(PREBUILT_PLATFORM_ROOT .
+find_path(PREBUILT_PLATFORM_ROOTS .
     PATHS ${CMAKE_CURRENT_SOURCE_DIR}/prebuilt/${PLATFORM_PREFIX}
     NO_DEFAULT_PATH
 )
 mark_as_advanced(
-    PREBUILT_PLATFORM_ROOT
+    PREBUILT_PLATFORM_ROOTS
 )
 
 include(UtilityFunctions)
