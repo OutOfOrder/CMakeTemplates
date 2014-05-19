@@ -3,7 +3,7 @@ include(CheckCCompilerFlag)
 include(CheckCXXCompilerFlag)
 
 ## Find a prebuiltlib
-## Must set a cache/global var of PREBUILT_PLATFORM_ROOTS so this function knows where to find the libraries.
+## Must set a cache/global var of PREBUILT_PLATFORM_ROOT so this function knows where to find the libraries.
 ## the epected structure is simply to have the libs/frameworks in the directory pointed to by that variable.
 ## for multi-arch linux putting libs in two subdirectories of lib and lib64 will allow cmake to find the right ones
 function(FindPrebuiltLibrary result_var libname)
