@@ -220,6 +220,89 @@ function(CreateProgram name)
     _BuildDynamicTarget(${name} exe ${ARGN})
 endfunction()
 
+## Helper functions to copy libs
+function(FindLinkedLibs target libs)
+    get_target_property(lib_list ${target} INTERFACE_LINK_LIBRARIES)
+    if (ARGV2 GREATER "0")
+        set(_extra ON)
+        math(EXPR level "${ARGV2} - 1")
+    endif()
+
+    foreach (lib ${lib_list})
+        get_filename_component(ext ${lib} EXT)
+        if(TARGET ${lib})
+            if(_extra)
+                FindLinkedLibs(${lib} shared_libs ${level})
+            endif()
+        elseif(ext STREQUAL ".framework" OR ext STREQUAL CMAKE_SHARED_LIBRARY_SUFFIX)
+            list(APPEND shared_libs ${lib})
+        endif()
+    endforeach()
+
+#    message(STATUS "Target: ${target} Shared: ${shared_libs}")
+    set(${libs} ${shared_libs} PARENT_SCOPE)
+endfunction()
+
+function(CopyDependentLibs target)
+    set(_mode "lib")
+
+    FindLinkedLibs(${target} __libs 2)
+    list(APPEND _libs ${__libs})
+    set(__libs)
+
+    foreach(entry ${ARGN})
+        if(entry STREQUAL "TARGETS")
+            set(_mode "target")
+        else()
+            if("${_mode}" STREQUAL "target")
+                FindLinkedLibs(${entry} __libs 2)
+                list(APPEND _libs ${__libs})
+                set(__libs)
+            elseif("${_mode}" STREQUAL "lib")
+                list(APPEND _libs ${entry})
+            else()
+                message(FATAL_ERROR "Unknown mode ${_mode}")
+            endif()
+        endif()
+    endforeach()
+
+    if(_libs)
+        list(REMOVE_DUPLICATES _libs)
+        list(SORT _libs)
+    endif()
+
+    INCLUDE(BundleUtilities)
+    GET_TARGET_PROPERTY(_BIN_NAME ${target} LOCATION)
+    GET_DOTAPP_DIR(${_BIN_NAME} _BUNDLE_DIR)
+
+    set(_SCRIPT_FILE "${CMAKE_CURRENT_BINARY_DIR}/${target}_copylibs.cmake")
+    file(WRITE ${_SCRIPT_FILE}
+        "# Generated Script file\n"
+        "include(BundleUtilities)\n"
+        "include(GetPrerequisites)\n"
+        "get_bundle_and_executable(\"\${BUNDLE_APP}\" bundle executable valid)\n"
+        "set(source_libs ${_libs})\n"
+        "if(valid)\n"
+        "  set(dest \"\${bundle}/Contents/Frameworks\")\n"
+        "  get_prerequisites(\${executable} lib_list 1 0 \"\" \"\")\n"
+        "  foreach(lib \${lib_list})\n"
+        "    get_filename_component(lib_file \${lib} NAME)\n"
+        "    foreach(slib in \${source_libs})\n"
+        "       get_filename_component(slib_file \${slib} NAME)\n"
+        "       if(lib_file STREQUAL slib_file)\n"
+        "           file(COPY \${slib} DESTINATION \${dest})\n"
+        "       endif()\n"
+        "    endforeach()\n"
+        "  endforeach()\n"
+        "else()\n"
+        "  message(ERROR \"App Not found? \${BUNDLE_APP}\")\n"
+        "endif()\n"
+    )
+    ADD_CUSTOM_COMMAND(TARGET ${target}
+        POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -DBUNDLE_APP="${_BUNDLE_DIR}" -P "${_SCRIPT_FILE}"
+    )
+endfunction()
 
 ## Helper functions to make development easier by handling mac OS X bundle preparations
 if(APPLE)
