@@ -62,7 +62,7 @@ endmacro()
 
 # magic function to handle the power functions below
 function(_BuildDynamicTarget name type)
-    set(_mode "dirs")
+    set(_mode "files")
     foreach(dir ${ARGN})
         if(dir STREQUAL "EXCLUDE")
             set(_mode "excl")
@@ -121,6 +121,8 @@ function(_BuildDynamicTarget name type)
                     ${dir}/*.h
                     ${dir}/*.hpp
                     ${dir}/*.inl
+                    ${dir}/.*.m
+                    ${dir}/*.mm
                 )
                 if(_files)
                     list(APPEND _source_files
