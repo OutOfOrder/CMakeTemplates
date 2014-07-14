@@ -1,3 +1,5 @@
+cmake_minimum_required(VERSION 2.8.11)
+
 ### build up utility functions
 include(CheckCCompilerFlag)
 include(CheckCXXCompilerFlag)
@@ -121,7 +123,7 @@ function(_BuildDynamicTarget name type)
                     ${dir}/*.h
                     ${dir}/*.hpp
                     ${dir}/*.inl
-                    ${dir}/.*.m
+                    ${dir}/*.m
                     ${dir}/*.mm
                 )
                 if(_files)
@@ -175,10 +177,16 @@ function(_BuildDynamicTarget name type)
         target_link_libraries(${name} ${_link_libs})
     endif()
     if(_flags)
-        string (REPLACE ";" " " _flags_str "${_flags}")
-        set_target_properties(${name} PROPERTIES
-            COMPILE_FLAGS "${_flags_str}"
-        )
+        if (CMAKE_VERSION VERSION_GREATER "2.8.12")
+            _SetDefaultScope(_flags PRIVATE)
+            target_compile_options(${name} ${_flags})
+        else()
+            message(STATUS "Compile flags will not be inherited! Use of CMAKE 2.8.12 is recommended!")
+            string (REPLACE ";" " " _flags_str "${_flags}")
+            set_target_properties(${name} PROPERTIES
+                COMPILE_FLAGS "${_flags_str}"
+            )
+        endif()
     endif()
     if(_properties)
         set_target_properties(${name} PROPERTIES
