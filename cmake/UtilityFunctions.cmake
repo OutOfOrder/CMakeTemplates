@@ -256,11 +256,12 @@ function(CopyDependentLibs target)
 
     FindLinkedLibs(${target} __libs 2)
     list(APPEND _libs ${__libs})
-    set(__libs)
 
     foreach(entry ${ARGN})
         if(entry STREQUAL "TARGETS")
             set(_mode "target")
+        elseif(entry STREQUAL "EXTRA_LIBS")
+            set(_mode "extra")
         else()
             if("${_mode}" STREQUAL "target")
                 FindLinkedLibs(${entry} __libs 2)
@@ -268,6 +269,8 @@ function(CopyDependentLibs target)
                 set(__libs)
             elseif("${_mode}" STREQUAL "lib")
                 list(APPEND _libs ${entry})
+            elseif("${_mode}" STREQUAL "extra")
+                list(APPEND _extra_libs ${entry})
             else()
                 message(FATAL_ERROR "Unknown mode ${_mode}")
             endif()
@@ -279,36 +282,79 @@ function(CopyDependentLibs target)
         list(SORT _libs)
     endif()
 
-    INCLUDE(BundleUtilities)
-    GET_TARGET_PROPERTY(_BIN_NAME ${target} LOCATION)
-    GET_DOTAPP_DIR(${_BIN_NAME} _BUNDLE_DIR)
+    if(_extra_libs)
+        list(REMOVE_DUPLICATES _extra_libs)
+        list(SORT _extra_libs)
+    endif()
+
+    get_target_property(_BIN_NAME ${target} LOCATION)
+    if(APPLE)
+        include(BundleUtilities)
+        get_dotapp_dir(${_BIN_NAME} _BUNDLE_DIR)
+    else()
+        set(_BUNDLE_DIR ${_BIN_NAME})
+        # Fetch library rpath relative directory from global properties
+        get_property(lib_rpath_dir GLOBAL PROPERTY LIBRARY_RPATH_DIRECTORY)
+        if(NOT lib_rpath_dir)
+            set(lib_rpath_dir "")
+        endif()
+    endif()
 
     set(_SCRIPT_FILE "${CMAKE_CURRENT_BINARY_DIR}/${target}_copylibs.cmake")
     file(WRITE ${_SCRIPT_FILE}
         "# Generated Script file\n"
-        "include(BundleUtilities)\n"
         "include(GetPrerequisites)\n"
-        "get_bundle_and_executable(\"\${BUNDLE_APP}\" bundle executable valid)\n"
         "set(source_libs ${_libs})\n"
-        "if(valid)\n"
-        "  set(dest \"\${bundle}/Contents/Frameworks\")\n"
+        "set(extra_libs ${_extra_libs})\n"
+        "\n"
+        "if (APPLE) # an OS X Bundle\n"
+        "  include(BundleUtilities)\n"
+        "  get_bundle_and_executable(\"\${BUNDLE_APP}\" bundle executable valid)\n"
+        "  if(valid)\n"
+        "    set(dest \"\${bundle}/Contents/Frameworks\")\n"
+        "    get_prerequisites(\${executable} lib_list 1 0 \"\" \"\")\n"
+        "    foreach(lib \${lib_list})\n"
+        "      get_filename_component(lib_file \"\${lib}\" NAME)\n"
+        "      foreach(slib in \${source_libs})\n"
+        "         get_filename_component(slib_file \"\${slib}\" NAME)\n"
+        "         if(lib_file STREQUAL slib_file)\n"
+        "           file(COPY \"\${slib}\" DESTINATION \"\${dest}\")\n"
+        "         endif()\n"
+        "      endforeach()\n"
+        "    endforeach()\n"
+        "  else()\n"
+        "    message(ERROR \"App Not found? \${BUNDLE_APP}\")\n"
+        "  endif()\n"
+        "else() # Not an OS X bundle\n"
+        "  set(executable \"\${BUNDLE_APP}\")\n"
+        "  get_filename_component(executable_dir \"\${executable}\" DIRECTORY)\n"
         "  get_prerequisites(\${executable} lib_list 1 0 \"\" \"\")\n"
-        "  foreach(lib \${lib_list})\n"
-        "    get_filename_component(lib_file \${lib} NAME)\n"
+        "  set(dest \${executable_dir}/\${LIB_RPATH_DIR})\n"
+        "  file(MAKE_DIRECTORY \${dest})\n"
+        "  foreach(lib \${lib_list} \${extra_libs})\n"
+        "    get_filename_component(lib_file \"\${lib}\" NAME)\n"
         "    foreach(slib in \${source_libs})\n"
-        "       get_filename_component(slib_file \${slib} NAME)\n"
-        "       if(lib_file STREQUAL slib_file)\n"
-        "           file(COPY \${slib} DESTINATION \${dest})\n"
-        "       endif()\n"
+        "      get_filename_component(slib_file \"\${slib}\" NAME)\n"
+        "      if(lib_file STREQUAL slib_file)\n"
+        "        message(STATUS \"Copying library: \${lib_file}\")\n"
+        "        execute_process(COMMAND \${CMAKE_COMMAND} -E copy \"\${slib}\" \"\${dest}\")\n"
+        "        break()\n"
+        "      else()\n"
+        "        get_filename_component(slib_dir \"\${slib}\" DIRECTORY)\n"
+        "        set(slib_path \"\${slib_dir}/\${lib_file}\")\n"
+        "        if(EXISTS \${slib_path})\n"
+        "          message(STATUS \"Copying library: \${lib_file}\")\n"
+        "          execute_process(COMMAND \${CMAKE_COMMAND} -E copy \"\${slib_path}\" \"\${dest}\")\n"
+        "          break()\n"
+        "        endif()\n"
+        "      endif()\n"
         "    endforeach()\n"
         "  endforeach()\n"
-        "else()\n"
-        "  message(ERROR \"App Not found? \${BUNDLE_APP}\")\n"
         "endif()\n"
     )
     ADD_CUSTOM_COMMAND(TARGET ${target}
         POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -DBUNDLE_APP="${_BUNDLE_DIR}" -P "${_SCRIPT_FILE}"
+            COMMAND ${CMAKE_COMMAND} -DBUNDLE_APP="${_BUNDLE_DIR}" -DLIB_RPATH_DIR="${lib_rpath_dir}"  -P "${_SCRIPT_FILE}"
     )
 endfunction()
 

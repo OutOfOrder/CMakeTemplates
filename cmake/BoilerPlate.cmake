@@ -36,10 +36,10 @@ if(LINUX)
     set(PLATFORM_PREFIX             "linux")
     if(CMAKE_SIZEOF_VOID_P MATCHES "8" AND NOT(FORCE32) )
         set(CMAKE_EXECUTABLE_SUFFIX ".bin.x86_64")
-        set(BIN_RPATH               "\$ORIGIN/lib64")
+        set(LIB_RPATH_DIR           "lib64")
     else()
         set(CMAKE_EXECUTABLE_SUFFIX ".bin.x86")
-        set(BIN_RPATH               "\$ORIGIN/lib")
+        set(LIB_RPATH_DIR           "lib")
         set_property(GLOBAL PROPERTY FIND_LIBRARY_USE_LIB64_PATHS OFF)
 
         ### Ensure LargeFileSupport on 32bit linux
@@ -51,18 +51,20 @@ if(LINUX)
         set(CMAKE_CXX_FLAGS         "${CMAKE_CXX_FLAGS} -msse -msse2")
     endif()
     
+    set_property(GLOBAL PROPERTY LIBRARY_RPATH_DIRECTORY ${LIB_RPATH_DIR})
+    
     set(CMAKE_SKIP_BUILD_RPATH              TRUE)
     set(CMAKE_BUILD_WITH_INSTALL_RPATH      TRUE)
-    set(CMAKE_INSTALL_RPATH                 ${BIN_RPATH})
+    set(CMAKE_INSTALL_RPATH                 "\$ORIGIN/${LIB_RPATH_DIR}")
     set(CMAKE_INSTALL_RPATH_USE_LINK_PATH   FALSE)
 elseif(APPLE)
     set(PLATFORM_PREFIX             "macosx")
 
     ## NOTE setting the rpath this way only works with CMAKE 2.8.12+
-    # A workaround for 2.8.11 is do also set 
+    # A workaround for 2.8.11 is to also set 
     # set(CMAKE_XCODE_ATTRIBUTE_LD_RUNPATH_SEARCH_PATHS ${BIN_RPATH})
     ##
-    
+
     set(BIN_RPATH "@executable_path/../Frameworks")
 
     set(CMAKE_SKIP_BUILD_RPATH              TRUE)
