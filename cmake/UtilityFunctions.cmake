@@ -62,6 +62,32 @@ macro(_SetDefaultScope var_name default_scope)
     unset(__setdefaultscope_temp)
 endmacro()
 
+function(MakeCopyFileDepenency outvar file)
+    if(IS_ABSOLUTE ${file})
+        set(_input ${file})
+    else()
+        set(_input ${CMAKE_CURRENT_SOURCE_DIR}/${file})
+    endif()
+    if(ARGC GREATER "2")
+        if(IS_ABSOLUTE ${ARGV2})
+            set(_output ${ARGV2})
+        else()
+            set(_output ${CMAKE_CURRENT_BINARY_DIR}/${ARGV2})
+        endif()
+    else()
+        get_filename_component(_outfile ${file} NAME)
+        set(_output ${CMAKE_CURRENT_BINARY_DIR}/${_outfile})
+    endif()
+
+    add_custom_command(
+        OUTPUT ${_output}
+        COMMAND ${CMAKE_COMMAND} -E copy ${_input} ${_output}
+        DEPENDS ${_input}
+        COMMENT "Copying ${file}"
+    )
+    set(${outvar} ${_output} PARENT_SCOPE)
+endfunction()
+
 # magic function to handle the power functions below
 function(_BuildDynamicTarget name type)
     set(_mode "files")
@@ -82,6 +108,17 @@ function(_BuildDynamicTarget name type)
             set(_mode "link")
         elseif(dir STREQUAL "PROPERTIES")
             set(_mode "properties")
+        # Simple Copying files to build dir
+        elseif(dir STREQUAL "COPY_FILES")
+            set(_mode "copyfiles")
+        # Emscripten handling
+        elseif(dir STREQUAL "ASM_FLAG")
+            set(_mode "em_asmflag")
+        elseif(dir STREQUAL "PRE_JS")
+            set(_mode "em_prejs")
+        elseif(dir STREQUAL "JS_LIBS")
+            set(_mode "em_jslib")
+        # The real work
         else()
             if(_mode STREQUAL "excl")
                 file(GLOB _files RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
@@ -130,6 +167,36 @@ function(_BuildDynamicTarget name type)
                     list(APPEND _source_files
                         ${_files}
                     )
+                endif()
+            # simple copy files
+            elseif(_mode STREQUAL "copyfiles")
+                MakeCopyFileDepenency(_copyfile_target
+                    ${dir}
+                )
+                list(APPEND _source_files
+                    ${_copyfile_target}
+                )
+                unset(_copyfile_target)
+            # emscripten handling
+            elseif(_mode STREQUAL "em_asmflag")
+                list(APPEND _em_asmflag
+                    "-s ${dir}"
+                )
+            elseif(_mode STREQUAL "em_prejs")
+                list(APPEND _em_prejs
+                    ${dir}
+                )
+            elseif(_mode STREQUAL "em_jslib")
+                if(IS_ABSOLUTE ${dir})
+                    list(APPEND _em_jslib
+                        ${dir}
+                    )
+                elseif(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${dir})
+                    list(APPEND _em_jslib
+                        ${CMAKE_CURRENT_SOURCE_DIR}/${dir}
+                    )
+                else()
+                    message(FATAL_ERROR "Could not find ${dir} in current source dir")
                 endif()
             else()
                 message(FATAL_ERROR "Unknown Mode ${_mode}")
@@ -192,6 +259,19 @@ function(_BuildDynamicTarget name type)
         set_target_properties(${name} PROPERTIES
             ${_properties}
         )
+    endif()
+    if(EMSCRIPTEN)
+        if(_em_jslib)
+            em_link_js_library(${name} ${_em_jslib})
+        endif()
+        if(_em_prejs)
+            em_link_pre_js(${name} ${_em_prejs})
+        endif()
+        if(_em_asmflag)
+            target_link_libraries(${name}
+                ${_em_asmflag}
+            )
+        endif()
     endif()
 endfunction()
 
@@ -427,5 +507,31 @@ if(APPLE)
             COMMAND ${CMAKE_COMMAND} -E make_directory ${resource_dir}
             COMMAND ${CMAKE_COMMAND} -E copy ${file} ${resource_dir}${subdir}
         )
+    endfunction()
+endif()
+
+if(EMSCRIPTEN)
+    function(EmscriptenCreatePackage output_file preload_map out_js_file)
+        set(_emscripten_path $ENV{EMSCRIPTEN})
+        if(NOT _emscripten_path)
+            message(FATAL_ERROR "could not locate EMSCRIPTEN did you forget to run source emsdk_env.sh")
+        endif()
+
+        set(_data_file ${CMAKE_CURRENT_BINARY_DIR}/${output_file}.data)
+        set(_preload_file ${CMAKE_CURRENT_BINARY_DIR}/${output_file}.data.js)
+
+        add_custom_command(
+            OUTPUT
+                ${_data_file}
+                ${_preload_file}
+            COMMAND
+                python2 ${_emscripten_path}/tools/file_packager.py
+            ARGS
+                ${_data_file}
+                --preload ${preload_map}
+                --js-output=${_preload_file}
+        )
+        set_source_files_properties(${_data_file} ${_preload_file} PROPERTIES GENERATED TRUE)
+        set(${out_js_file} ${_preload_file} PARENT_SCOPE)
     endfunction()
 endif()

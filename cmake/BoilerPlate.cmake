@@ -1,4 +1,8 @@
 ### setup options
+## Include guard
+if(NOT BOILERPLATE_LOADED)
+    set(BOILERPLATE_LOADED ON)
+
 option(FULL_WARNINGS "Enable full warnings" OFF)
 option(FORCE32 "Force a 32bit compile on 64bit" OFF)
 
@@ -9,8 +13,13 @@ if("${CMAKE_SYSTEM}" MATCHES "Linux")
     set(LINUX ON)
 endif()
 
+if(EMSCRIPTEN)
+    list(APPEND CMAKE_C_FLAGS       "-Wno-warn-absolute-paths")
+    list(APPEND CMAKE_CXX_FLAGS     "-Wno-warn-absolute-paths")
+endif()
+
 if(FORCE32)
-    if(LINUX)
+    if(LINUX AND NOT EMSCRIPTEN)
         set(CMAKE_C_FLAGS   "${CMAKE_C_FLAGS} -m32")
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -m32")
     elseif(APPLE)
@@ -23,7 +32,7 @@ if(FULL_WARNINGS)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra")
 endif()
 
-if(NOT WIN32)
+if(NOT WIN32 AND NOT EMSCRIPTEN)
     set(CMAKE_C_FLAGS   "${CMAKE_C_FLAGS} -fno-strict-aliasing")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-strict-aliasing")
 endif()
@@ -32,7 +41,10 @@ if(APPLE)
     set(CMAKE_OSX_DEPLOYMENT_TARGET "10.6")
 endif()
 
-if(LINUX)
+if(EMSCRIPTEN)
+    set(PLATFORM_PREFIX             "emscripten")
+    set(CMAKE_EXECUTABLE_SUFFIX     ".js")
+elseif(LINUX)
     set(PLATFORM_PREFIX             "linux")
     if(CMAKE_SIZEOF_VOID_P MATCHES "8" AND NOT(FORCE32) )
         set(CMAKE_EXECUTABLE_SUFFIX ".bin.x86_64")
@@ -100,4 +112,7 @@ endif()
     set(CMAKE_INSTALL_RPATH                 ${CMAKE_INSTALL_RPATH} PARENT_SCOPE)
     set(CMAKE_INSTALL_RPATH_USE_LINK_PATH   ${CMAKE_INSTALL_RPATH_USE_LINK_PATH} PARENT_SCOPE)
     set(CMAKE_EXECUTABLE_SUFFIX             ${CMAKE_EXECUTABLE_SUFFIX} PARENT_SCOPE)
+endif()
+
+## include guard
 endif()
