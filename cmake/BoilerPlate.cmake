@@ -4,10 +4,8 @@ if(NOT BOILERPLATE_LOADED)
     set(BOILERPLATE_LOADED ON)
 
 option(FULL_WARNINGS "Enable full warnings" OFF)
+option(ENABLE_SSE4 "Enable SSE 4" OFF)
 option(FORCE32 "Force a 32bit compile on 64bit" OFF)
-
-# this adds the build directory to the include path automatically
-set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
 if("${CMAKE_SYSTEM}" MATCHES "Linux")
     set(LINUX ON)
@@ -37,7 +35,7 @@ if(NOT WIN32 AND NOT EMSCRIPTEN)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-strict-aliasing")
 endif()
 
-if(APPLE)
+if(APPLE AND NOT CMAKE_OSX_DEPLOYMENT_TARGET)
     set(CMAKE_OSX_DEPLOYMENT_TARGET "10.6")
 endif()
 
@@ -49,7 +47,9 @@ elseif(LINUX)
     if(CMAKE_SIZEOF_VOID_P MATCHES "8" AND NOT(FORCE32) )
         set(CMAKE_EXECUTABLE_SUFFIX ".bin.x86_64")
         set(LIB_RPATH_DIR           "lib64")
+        set_property(GLOBAL PROPERTY FIND_LIBRARY_USE_LIB64_PATHS ON)
     else()
+        set(LINUX_X86 ON)
         set(CMAKE_EXECUTABLE_SUFFIX ".bin.x86")
         set(LIB_RPATH_DIR           "lib")
         set_property(GLOBAL PROPERTY FIND_LIBRARY_USE_LIB64_PATHS OFF)
@@ -59,8 +59,13 @@ elseif(LINUX)
         set(CMAKE_CXX_FLAGS         "${CMAKE_CXX_FLAGS} -D_FILE_OFFSET_BITS=64")
 
         ### Enable SSE instructions
-        set(CMAKE_C_FLAGS           "${CMAKE_C_FLAGS} -msse -msse2")
-        set(CMAKE_CXX_FLAGS         "${CMAKE_CXX_FLAGS} -msse -msse2")
+        set(CMAKE_C_FLAGS           "${CMAKE_C_FLAGS} -msse -msse2 -msse3")
+        set(CMAKE_CXX_FLAGS         "${CMAKE_CXX_FLAGS} -msse -msse2 -msse3")
+        ### Enable SSE4 instructions
+        if(ENABLE_SSE4)
+            set(CMAKE_C_FLAGS           "${CMAKE_C_FLAGS} -msse4")
+            set(CMAKE_CXX_FLAGS         "${CMAKE_CXX_FLAGS} -msse4")
+        endif()
     endif()
     
     set_property(GLOBAL PROPERTY LIBRARY_RPATH_DIRECTORY ${LIB_RPATH_DIR})
@@ -83,6 +88,12 @@ elseif(APPLE)
     set(CMAKE_BUILD_WITH_INSTALL_RPATH      TRUE)
     set(CMAKE_INSTALL_RPATH                 ${BIN_RPATH})
     set(CMAKE_INSTALL_RPATH_USE_LINK_PATH   FALSE)
+
+    ### Enable SSE4 instructions
+    if(ENABLE_SSE4)
+        set(CMAKE_C_FLAGS           "${CMAKE_C_FLAGS} -msse4")
+        set(CMAKE_CXX_FLAGS         "${CMAKE_CXX_FLAGS} -msse4")
+    endif()
 elseif(WIN32)
     set(PLATFORM_PREFIX             "win32")
 else()
@@ -94,6 +105,7 @@ if(NOT CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
     message(STATUS "Exporting variables to parent scope")
 
     set(LINUX                               ${LINUX} PARENT_SCOPE)
+    set(LINUX_X86                           ${LINUX_X86} PARENT_SCOPE)
     set(FORCE32                             ${FORCE32} PARENT_SCOPE)
     set(PLATFORM_PREFIX                     ${PLATFORM_PREFIX} PARENT_SCOPE)
 

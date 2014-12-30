@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.8.11)
+cmake_minimum_required(VERSION 2.8.12)
 
 ### build up utility functions
 include(CheckCCompilerFlag)
@@ -102,6 +102,8 @@ function(_BuildDynamicTarget name type)
             set(_mode "incl")
         elseif(dir STREQUAL "DEFINES")
             set(_mode "define")
+        elseif(dir STREQUAL "PREFIX")
+            set(_mode "prefix")
         elseif(dir STREQUAL "FLAGS")
             set(_mode "flags")
         elseif(dir STREQUAL "LINK")
@@ -121,18 +123,35 @@ function(_BuildDynamicTarget name type)
         # The real work
         else()
             if(_mode STREQUAL "excl")
-                file(GLOB _files RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
-                    ${dir}
-                )
+                if (dir MATCHES "\\/\\*\\*$")
+                    string(LENGTH ${dir} dir_LENGTH)
+                    math(EXPR dir_LENGTH "${dir_LENGTH} - 3")
+                    string(SUBSTRING ${dir} 0 ${dir_LENGTH} dir)
+
+                    file(GLOB_RECURSE _files RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
+                        ${dir}/*.*
+                    )
+                else()
+                    file(GLOB _files RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
+                        ${dir}
+                    )
+                endif()
                 if(_files)
                     list(REMOVE_ITEM _source_files
                         ${_files}
                     )
                 endif()
+                set(_files)
             elseif(_mode STREQUAL "files")
-                list(APPEND _source_files
+                file(GLOB _files RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
                     ${dir}
                 )
+                if(_files)
+                    list(APPEND _source_files
+                        ${_files}
+                    )
+                endif()
+                set(_files)
             elseif(_mode STREQUAL "incl")
                 list(APPEND _include_dirs
                     ${dir}
@@ -153,16 +172,47 @@ function(_BuildDynamicTarget name type)
                 list(APPEND _properties
                     ${dir}
                 )
+            elseif(_mode STREQUAL "prefix")
+                if(IS_ABSOLUTE ${dir})
+                    list(APPEND _flags
+                        PRIVATE "-include ${dir}"
+                    )
+                elseif(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${dir})
+                    list(APPEND _flags
+                        PRIVATE -include ${CMAKE_CURRENT_SOURCE_DIR}/${dir}
+                    )
+                else()
+                    message(FATAL_ERROR "could not find refix header")
+                endif()
             elseif(_mode STREQUAL "dirs")
-                file(GLOB _files RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
-                    ${dir}/*.c
-                    ${dir}/*.cpp
-                    ${dir}/*.h
-                    ${dir}/*.hpp
-                    ${dir}/*.inl
-                    ${dir}/*.m
-                    ${dir}/*.mm
-                )
+                if (dir STREQUAL ".")
+                    set(dir ${CMAKE_CURRENT_SOURCE_DIR})
+                endif()
+                if (dir MATCHES "\\/\\*\\*$")
+                    string(LENGTH ${dir} dir_LENGTH)
+                    math(EXPR dir_LENGTH "${dir_LENGTH} - 3")
+                    string(SUBSTRING ${dir} 0 ${dir_LENGTH} dir)
+
+                    file(GLOB_RECURSE _files RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
+                        ${dir}/*.c
+                        ${dir}/*.cpp
+                        ${dir}/*.h
+                        ${dir}/*.hpp
+                        ${dir}/*.inl
+                        ${dir}/*.m
+                        ${dir}/*.mm
+                    )
+                else()
+                    file(GLOB _files RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
+                        ${dir}/*.c
+                        ${dir}/*.cpp
+                        ${dir}/*.h
+                        ${dir}/*.hpp
+                        ${dir}/*.inl
+                        ${dir}/*.m
+                        ${dir}/*.mm
+                    )
+                endif()
                 if(_files)
                     list(APPEND _source_files
                         ${_files}
@@ -222,6 +272,10 @@ function(_BuildDynamicTarget name type)
         add_library(${name} MODULE
             ${_source_files}
         )
+    elseif(type STREQUAL "tool")
+        add_executable(${name}
+            ${_source_files}
+        )
     else()
         add_executable(${name} MACOSX_BUNDLE WIN32
             ${_source_files}
@@ -244,16 +298,8 @@ function(_BuildDynamicTarget name type)
         target_link_libraries(${name} ${_link_libs})
     endif()
     if(_flags)
-        if (CMAKE_VERSION VERSION_GREATER "2.8.12")
-            _SetDefaultScope(_flags PRIVATE)
-            target_compile_options(${name} ${_flags})
-        else()
-            message(STATUS "Compile flags will not be inherited! Use of CMAKE 2.8.12 is recommended!")
-            string (REPLACE ";" " " _flags_str "${_flags}")
-            set_target_properties(${name} PROPERTIES
-                COMPILE_FLAGS "${_flags_str}"
-            )
-        endif()
+        _SetDefaultScope(_flags PRIVATE)
+        target_compile_options(${name} ${_flags})
     endif()
     if(_properties)
         set_target_properties(${name} PROPERTIES
@@ -306,6 +352,10 @@ endfunction()
 
 function(CreateProgram name)
     _BuildDynamicTarget(${name} exe ${ARGN})
+endfunction()
+
+function(CreateTool name)
+    _BuildDynamicTarget(${name} tool ${ARGN})
 endfunction()
 
 ## Helper functions to copy libs
@@ -362,22 +412,12 @@ function(CopyDependentLibs target)
         list(SORT _libs)
     endif()
 
-    if(_extra_libs)
-        list(REMOVE_DUPLICATES _extra_libs)
-        list(SORT _extra_libs)
-    endif()
+    # we don't sort extralibs as it may have debug;optimized entries in it
 
-    get_target_property(_BIN_NAME ${target} LOCATION)
-    if(APPLE)
-        include(BundleUtilities)
-        get_dotapp_dir(${_BIN_NAME} _BUNDLE_DIR)
-    else()
-        set(_BUNDLE_DIR ${_BIN_NAME})
-        # Fetch library rpath relative directory from global properties
-        get_property(lib_rpath_dir GLOBAL PROPERTY LIBRARY_RPATH_DIRECTORY)
-        if(NOT lib_rpath_dir)
-            set(lib_rpath_dir "")
-        endif()
+    # Fetch library rpath relative directory from global properties
+    get_property(lib_rpath_dir GLOBAL PROPERTY LIBRARY_RPATH_DIRECTORY)
+    if(NOT lib_rpath_dir)
+        set(lib_rpath_dir "")
     endif()
 
     set(_SCRIPT_FILE "${CMAKE_CURRENT_BINARY_DIR}/${target}_copylibs.cmake")
@@ -411,30 +451,48 @@ function(CopyDependentLibs target)
         "  get_prerequisites(\${executable} lib_list 1 0 \"\" \"\")\n"
         "  set(dest \${executable_dir}/\${LIB_RPATH_DIR})\n"
         "  file(MAKE_DIRECTORY \${dest})\n"
+        "  set(_skipreq OFF)\n"
         "  foreach(lib \${lib_list} \${extra_libs})\n"
-        "    get_filename_component(lib_file \"\${lib}\" NAME)\n"
-        "    foreach(slib in \${source_libs})\n"
-        "      get_filename_component(slib_file \"\${slib}\" NAME)\n"
-        "      if(lib_file STREQUAL slib_file)\n"
-        "        message(STATUS \"Copying library: \${lib_file}\")\n"
-        "        execute_process(COMMAND \${CMAKE_COMMAND} -E copy \"\${slib}\" \"\${dest}\")\n"
-        "        break()\n"
-        "      else()\n"
-        "        get_filename_component(slib_dir \"\${slib}\" DIRECTORY)\n"
-        "        set(slib_path \"\${slib_dir}/\${lib_file}\")\n"
-        "        if(EXISTS \${slib_path})\n"
-        "          message(STATUS \"Copying library: \${lib_file}\")\n"
-        "          execute_process(COMMAND \${CMAKE_COMMAND} -E copy \"\${slib_path}\" \"\${dest}\")\n"
-        "          break()\n"
-        "        endif()\n"
-        "      endif()\n"
-        "    endforeach()\n"
-        "  endforeach()\n"
+        "    if(_skipreq)\n"
+        "      set(_skipreq OFF)\n"
+        "    elseif( (lib STREQUAL \"debug\" AND NOT USE_DEBUG) OR (lib STREQUAL \"optimized\" AND USE_DEBUG) )\n"
+        "      set(_skipreq ON)\n"
+        "    elseif( (lib STREQUAL \"debug\" AND USE_DEBUG) OR (lib STREQUAL \"optimized\" AND NOT USE_DEBUG) )\n"
+        "      # Splitting based on debug/optimized\n"
+        "    else()\n"
+        "      get_filename_component(lib_file \"\${lib}\" NAME)\n"
+        "      set(_skip OFF)\n"
+        "      foreach(slib in \${source_libs} \${extra_libs})\n"
+        "        if(_skip)\n"
+        "          set(_skip OFF)\n"
+        "        elseif( (slib STREQUAL \"debug\" AND NOT USE_DEBUG) OR (slib STREQUAL \"optimized\" AND USE_DEBUG) )\n"
+        "          set(_skip ON)\n"
+        "        elseif( (slib STREQUAL \"debug\" AND USE_DEBUG) OR (slib STREQUAL \"optimized\" AND NOT USE_DEBUG) )\n"
+        "          # Splitting based on debug/optimized\n"
+        "        else()\n"
+        "          get_filename_component(slib_file \"\${slib}\" NAME)\n"
+        "          if(lib_file STREQUAL slib_file)\n"
+        "            message(STATUS \"Copying library: \${lib_file}\")\n"
+        "            execute_process(COMMAND \${CMAKE_COMMAND} -E copy \"\${slib}\" \"\${dest}\")\n"
+        "            break()\n"
+        "          else()\n"
+        "            get_filename_component(slib_dir \"\${slib}\" PATH)\n"
+        "            set(slib_path \"\${slib_dir}/\${lib_file}\")\n"
+        "            if(EXISTS \${slib_path})\n"
+        "              message(STATUS \"Copying library: \${lib_file}\")\n"
+        "              execute_process(COMMAND \${CMAKE_COMMAND} -E copy \"\${slib_path}\" \"\${dest}\")\n"
+        "              break()\n"
+        "            endif()\n"
+        "          endif()\n"
+        "        endif()\n" # _skip
+        "      endforeach()\n" # source lib scan
+        "    endif()\n" # _skipreq
+        "  endforeach()\n" # required libs
         "endif()\n"
     )
     ADD_CUSTOM_COMMAND(TARGET ${target}
         POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -DBUNDLE_APP="${_BUNDLE_DIR}" -DLIB_RPATH_DIR="${lib_rpath_dir}"  -P "${_SCRIPT_FILE}"
+COMMAND ${CMAKE_COMMAND} -DBUNDLE_APP="$<TARGET_FILE:${target}>" -DLIB_RPATH_DIR="${lib_rpath_dir}" -DUSE_DEBUG=$<CONFIG:Debug> -P "${_SCRIPT_FILE}"
     )
 endfunction()
 
