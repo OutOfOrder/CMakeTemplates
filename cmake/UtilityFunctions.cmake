@@ -4,32 +4,6 @@ cmake_minimum_required(VERSION 2.8.12)
 include(CheckCCompilerFlag)
 include(CheckCXXCompilerFlag)
 
-## Find a prebuiltlib
-## Must set a cache/global var of PREBUILT_PLATFORM_ROOT so this function knows where to find the libraries.
-## the epected structure is simply to have the libs/frameworks in the directory pointed to by that variable.
-## for multi-arch linux putting libs in two subdirectories of lib and lib64 will allow cmake to find the right ones
-function(FindPrebuiltLibrary result_var libname)
-    if(NOT PREBUILT_PLATFORM_ROOTS)
-        message(FATAL_ERROR "Must set PREBUILT_PLATFORM_ROOTS before using this function")
-    endif()
-
-    foreach(path ${PREBUILT_PLATFORM_ROOTS})
-        list(APPEND SEARCH_PATHS ${path}/lib ${path})
-    endforeach()
-
-    # check prebuilt directory first
-    find_library(${result_var}
-        NAMES ${libname}
-        PATHS ${SEARCH_PATHS}
-        NO_DEFAULT_PATH)
-    # Check system dir
-    find_library(${result_var}
-        NAMES ${libname})
-    if(NOT ${result_var})
-        message(FATAL_ERROR "Could not find library ${libname} in prebuilt folder ${PREBUILT_PLATFORM_ROOTS}")
-    endif()
-endfunction()
-
 function(CheckCFlags outvar)
     foreach(flag ${ARGN})
         string(REGEX REPLACE "[^a-zA-Z0-9_]+" "_" cleanflag ${flag})
@@ -495,78 +469,6 @@ function(CopyDependentLibs target)
 COMMAND ${CMAKE_COMMAND} -DBUNDLE_APP="$<TARGET_FILE:${target}>" -DLIB_RPATH_DIR="${lib_rpath_dir}" -DUSE_DEBUG=$<CONFIG:Debug> -P "${_SCRIPT_FILE}"
     )
 endfunction()
-
-## Helper functions to make development easier by handling mac OS X bundle preparations
-if(APPLE)
-    ## TODO make more versitile to handle frameworks with a version other than A
-    ## TODO make handle "Mac App Store" required symlink fun
-    function(PostBuildMacBundle target framework_list lib_list)
-        INCLUDE(BundleUtilities)
-        GET_TARGET_PROPERTY(_BIN_NAME ${target} LOCATION)
-        GET_DOTAPP_DIR(${_BIN_NAME} _BUNDLE_DIR)
-
-        set(_SCRIPT_FILE "${CMAKE_CURRENT_BINARY_DIR}/${target}_prep.cmake")
-        file(WRITE ${_SCRIPT_FILE}
-            "# Generated Script file\n"
-            "include(BundleUtilities)\n"
-            "get_bundle_and_executable(\"\${BUNDLE_APP}\" bundle executable valid)\n"
-            "if(valid)\n"
-            "  set(framework_dest \"\${bundle}/Contents/Frameworks\")\n"
-            "  foreach(framework_path ${framework_list})\n"
-            "    get_filename_component(framework_name \${framework_path} NAME_WE)\n"
-            "    file(MAKE_DIRECTORY \"\${framework_dest}/\${framework_name}.framework/Versions/\")\n"
-            "    execute_process(COMMAND \${CMAKE_COMMAND} -E copy_directory \${framework_path}/Versions \${framework_dest}/\${framework_name}.framework/Versions)\n"
-            "  endforeach()\n"
-            "  foreach(lib ${lib_list})\n"
-            "    get_filename_component(lib_file \${lib} NAME)\n"
-            "    copy_resolved_item_into_bundle(\${lib} \${framework_dest}/\${lib_file})\n"
-            "  endforeach()\n"
-            "else()\n"
-            "  message(ERROR \"App Not found? \${BUNDLE_APP}\")\n"
-            "endif()\n"
-            "#fixup_bundle(\"\${BUNDLE_APP}\" \"\" \"\${DEP_LIB_DIR}\")\n"
-        )
-
-        ADD_CUSTOM_COMMAND(TARGET ${target}
-            POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -DBUNDLE_APP="${_BUNDLE_DIR}" -P "${_SCRIPT_FILE}"
-        )
-    endfunction()
-    function(PostBuildCopyMacResourceDir target dir)
-        if(ARGV2)
-            set(subdir "/${ARGV2}")
-        else()
-            set(subdir "")
-        endif()
-        INCLUDE(BundleUtilities)
-        GET_TARGET_PROPERTY(_BIN_NAME ${target} LOCATION)
-        GET_DOTAPP_DIR("${_BIN_NAME}" _BUNDLE_DIR)
-        SET(resource_dir "${_BUNDLE_DIR}/Contents/Resources")
-
-        add_custom_command(TARGET ${target}
-            POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E make_directory ${resource_dir}
-            COMMAND ${CMAKE_COMMAND} -E copy_directory ${dir} ${resource_dir}${subdir}
-        )
-    endfunction()
-    function(PostBuildCopyMacResourceFile target file)
-        if(ARGV2)
-            set(subdir "/${ARGV2}")
-        else()
-            set(subdir "")
-        endif()
-        INCLUDE(BundleUtilities)
-        GET_TARGET_PROPERTY(_BIN_NAME ${target} LOCATION)
-        GET_DOTAPP_DIR("${_BIN_NAME}" _BUNDLE_DIR)
-        SET(resource_dir "${_BUNDLE_DIR}/Contents/Resources")
-
-        add_custom_command(TARGET ${target}
-            POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E make_directory ${resource_dir}
-            COMMAND ${CMAKE_COMMAND} -E copy ${file} ${resource_dir}${subdir}
-        )
-    endfunction()
-endif()
 
 if(EMSCRIPTEN)
     function(EmscriptenCreatePackage output_file preload_map out_js_file)
