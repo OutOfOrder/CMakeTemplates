@@ -1,3 +1,5 @@
+#include <SDL.h>
+
 int SDL_Init(int flags) {
     return flags;
 }
