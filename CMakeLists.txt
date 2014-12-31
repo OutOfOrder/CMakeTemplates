@@ -60,7 +60,7 @@ DEFINES
         $<$<BOOL:${USE_STEAM}>:WITH_STEAM>
 LINK
     fun # this automatically pulls in the fun specific header directory
-    ${CMAKE_THREADS_LIBS_INIT}
+    ${CMAKE_THREAD_LIBS_INIT}
     ${SDL2_LIBRARIES}
     ${OPENGL_gl_LIBRARY}
     ${OPENAL_LIBRARIES}
