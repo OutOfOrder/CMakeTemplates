@@ -269,7 +269,7 @@ function(_BuildDynamicTarget name type)
         )
         if(LINUX)
             set_target_properties(${name} PROPERTIES
-                LINK_FLAGS_RELEASE "-Wl,--allow-shlib-undefined" # Voodoo to ignore the libs that steam_api is linked to (will be resolved at runtime)
+                LINK_FLAGS "-Wl,--allow-shlib-undefined" # Voodoo to ignore the libs that steam_api is linked to (will be resolved at runtime)
             )
         endif()
     endif()
