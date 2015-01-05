@@ -312,14 +312,29 @@ endfunction()
 ## 
 ## the parameters are simply the target name followed by a list of directories or other parameters
 ## parameters that can be specified
-## DIRS       followed by a list of directories ..  will glob in *.c, *.cpp, *.h, *.hpp, *.inl
+## FILES      followed by a list of explicit files/globs to add (or generated files).
+## DIRS       followed by a list of directories ..  will glob in *.c, *.cpp, *.h, *.hpp, *.inl, *.m, *.mm
+##                      If you end the string with ** it will pull in recursively.
+## REFERENCE  followed by a list of explicit files/globs to add.
+##                      These files will be available in the IDE, but will NOT be compiled. (ini files, txt files)
 ## EXCLUDE    followed by a list of files/globs to exclude
-## FILES      followed by a list of explicit files to add (or generated files)
-## INCLUDES   followed by a list of include directories. These use Generator expressions (see CMAKE documentation) default is PRIVATE scoped
-## DEFINES    followed by a list of compiler defines.  These use Generator expressions (see CMAKE documentation) default is PRIVATE scoped
-## FLAGS      followed by a list of compiler flags
+## INCLUDES   followed by a list of include directories.
+##                      These use Generator expressions (see CMAKE documentation) default is PRIVATE scoped
+## DEFINES    followed by a list of compiler defines.
+##                      These use Generator expressions (see CMAKE documentation) default is PRIVATE scoped
+## FLAGS      followed by a list of compiler flags.
+##                      These use Generator expressions (see CMAKE documentation) default is PRIVATE scoped
+## PREFIX     followed by a header. Basic prefix header support..  currently only GCC/Clang is supported.
 ## LINK       followed by a list of link targets.  Can use Generator expressions (see CMAKE documentation)
 ## PROPERTIES followed by a list of target properties.
+## COPY_FILES followed by a list of files to copy to the build directory.
+##                      If relative, assumes relative to source dir
+##  Emscripten/asm.js ONLY flags
+## ASM_FLAG   followed by a list of emscripten flags (without the -s.. e.g.  FULL_ES2=1)
+## PRE_JS     followed by a list of js files to preinclude in the .js output
+##                      If relative, assumes relative to source dir
+## JS_LIBS    followed by a list of JS libs to include during emscripten link phase.
+##                      If relative, assumes relative to source dir
 
 function(CreateSharedLibrary name)
     _BuildDynamicTarget(${name} shared ${ARGN})
