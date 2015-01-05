@@ -72,6 +72,8 @@ function(_BuildDynamicTarget name type)
             set(_mode "dirs")
         elseif(dir STREQUAL "FILES")
             set(_mode "files")
+        elseif(dir STREQUAL "REFERENCE")
+            set(_mode "reference")
         elseif(dir STREQUAL "INCLUDES")
             set(_mode "incl")
         elseif(dir STREQUAL "DEFINES")
@@ -144,6 +146,10 @@ function(_BuildDynamicTarget name type)
                 )
             elseif(_mode STREQUAL "properties")
                 list(APPEND _properties
+                    ${dir}
+                )
+            elseif(_mode STREQUAL "reference")
+                list(APPEND _reference
                     ${dir}
                 )
             elseif(_mode STREQUAL "prefix")
@@ -229,6 +235,13 @@ function(_BuildDynamicTarget name type)
     endforeach()
     if (NOT _source_files)
         message(FATAL_ERROR "Could not find any sources for ${name}")
+    endif()
+    if(_reference)
+        list(APPEND _source_files ${_reference})
+        set_source_files_properties(${_reference}
+            PROPERTIES
+                HEADER_FILE_ONLY TRUE
+        )
     endif()
     if(type STREQUAL "lib")
         add_library(${name} STATIC EXCLUDE_FROM_ALL
@@ -466,32 +479,136 @@ function(CopyDependentLibs target)
     )
     ADD_CUSTOM_COMMAND(TARGET ${target}
         POST_BUILD
-COMMAND ${CMAKE_COMMAND} -DBUNDLE_APP="$<TARGET_FILE:${target}>" -DLIB_RPATH_DIR="${lib_rpath_dir}" -DUSE_DEBUG=$<CONFIG:Debug> -P "${_SCRIPT_FILE}"
+        COMMAND ${CMAKE_COMMAND} -DBUNDLE_APP="$<TARGET_FILE:${target}>" -DLIB_RPATH_DIR="${lib_rpath_dir}" -DUSE_DEBUG=$<CONFIG:Debug> -P "${_SCRIPT_FILE}"
     )
 endfunction()
 
 if(EMSCRIPTEN)
-    function(EmscriptenCreatePackage output_file preload_map out_js_file)
-        set(_emscripten_path $ENV{EMSCRIPTEN})
-        if(NOT _emscripten_path)
-            message(FATAL_ERROR "could not locate EMSCRIPTEN did you forget to run source emsdk_env.sh")
-        endif()
-
+    find_file(EM_FILE_PACKAGER
+        file_packager.py
+        HINTS ENV EMSCRIPTEN
+        PATH_SUFFIXES tools
+        NO_CMAKE_FIND_ROOT_PATH
+    )
+    function(EmscriptenCreatePackage output_file out_js_file)
         set(_data_file ${CMAKE_CURRENT_BINARY_DIR}/${output_file}.data)
         set(_preload_file ${CMAKE_CURRENT_BINARY_DIR}/${output_file}.data.js)
+
+        set(_mode "none")
+        foreach(entry ${ARGN})
+            if(entry STREQUAL "PRELOAD")
+                set(_mode "preload")
+            elseif(entry STREQUAL "ARGS")
+                set(_mode "args")
+            else()
+                if (_mode STREQUAL "preload")
+                    list(APPEND preload_map ${entry})
+
+                    string(REGEX MATCH "^([^@]+)@?" _path "${entry}")
+
+                    if(NOT IS_ABSOLUTE _path)
+                        set(_path ${CMAKE_CURRENT_BINARY_DIR}/${_path})
+                    endif()
+
+                    file(GLOB_RECURSE _files
+                        ${_path}/*
+                    )
+                    list(APPEND _packaged_files ${_files})
+                elseif(_mode STREQUAL "args")
+                    list(APPEND extra_opts ${entry})
+                else()
+                    message(FATAL_ERROR "Specify a proper mode.  PRELOAD or ARGS")
+                endif()
+            endif()
+        endforeach()
+        
+        if(NOT preload_map)
+            message(FATAL_ERROR "Specify a preload map: ${preload_map}")
+        endif()
 
         add_custom_command(
             OUTPUT
                 ${_data_file}
                 ${_preload_file}
+            DEPENDS
+                ${_packaged_files}
+            WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
             COMMAND
-                python2 ${_emscripten_path}/tools/file_packager.py
+                python2 ${EM_FILE_PACKAGER}
             ARGS
-                ${_data_file}
+                ${output_file}.data
+                --js-output=${output_file}.data.js
                 --preload ${preload_map}
-                --js-output=${_preload_file}
+                ${extra_opts}
         )
         set_source_files_properties(${_data_file} ${_preload_file} PROPERTIES GENERATED TRUE)
         set(${out_js_file} ${_preload_file} PARENT_SCOPE)
     endfunction()
+
+    function(SetupEmscriptenTestPage target)
+        set(_mode "none")
+
+        foreach(entry ${ARGN})
+            if(entry STREQUAL "PRELOAD")
+                set(_mode "preload")
+            elseif(entry STREQUAL "ASM_FLAG")
+                set(_mode "asmflag")
+            elseif(entry STREQUAL "PRE_JS")
+                set(_mode "prejs")
+            elseif(entry STREQUAL "JS_LIBS")
+                set(_mode "lib")
+            else()
+                if("${_mode}" STREQUAL "preload")
+                    list(APPEND _preload_file_list
+                        --preload-file
+                        ${entry}
+                    )
+                elseif("${_mode}" STREQUAL "asmflag")
+                    list(APPEND _asm_flags
+                        -s
+                        "${entry}"
+                    )
+                elseif("${_mode}" STREQUAL "prejs")
+                    list(APPEND _prejs
+                        --pre-js
+                        "${entry}"
+                    )
+                    list(APPEND _prejs_source
+                        "${entry}"
+                    )
+                elseif("${_mode}" STREQUAL "lib")
+                    list(APPEND _libs
+                        --js-library
+                        "${entry}"
+                    )
+                else()
+                    message(FATAL_ERROR "Unknown mode ${_mode}")
+                endif()
+            endif()
+        endforeach()
+
+        add_custom_target(${target}_preload
+            DEPENDS ${_prejs_source}
+        )
+
+        add_custom_command(TARGET ${target}
+            POST_BUILD
+                COMMENT "Producting test html rig for ${target}"
+                DEPENDS ${target}_preload
+                COMMAND
+                    ${CMAKE_C_COMPILER}
+                ARGS
+                    ${CMAKE_C_FLAGS}
+                    $<$<CONFIG:Debug>:${CMAKE_C_FLAGS_DEBUG}>
+                    $<$<CONFIG:Release>:${CMAKE_C_FLAGS_RELEASE}>
+                    $<TARGET_FILE:${target}>
+                    -o ${target}.html
+                    ${_preload_file_list}
+                    ${_asm_flags}
+                    ${_prejs}
+                    ${_libs}
+        )
+        add_dependencies(${target} ${target}_preload)
+    endfunction()
+
 endif()

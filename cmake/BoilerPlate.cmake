@@ -1,3 +1,5 @@
+cmake_minimum_required(VERSION 2.8.12)
+
 ### setup options
 ## Include guard
 if(NOT BOILERPLATE_LOADED)
@@ -12,8 +14,9 @@ if("${CMAKE_SYSTEM}" MATCHES "Linux")
 endif()
 
 if(EMSCRIPTEN)
-    list(APPEND CMAKE_C_FLAGS       "-Wno-warn-absolute-paths")
-    list(APPEND CMAKE_CXX_FLAGS     "-Wno-warn-absolute-paths")
+    set(CMAKE_C_FLAGS   "${CMAKE_C_FLAGS} -Wno-warn-absolute-paths")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-warn-absolute-paths")
+    set(CMAKE_EXE_LINKER_FLAGS_DEBUG "${CMAKE_EXE_LINKER_FLAGS_DEBUG} -g4 -s DEMANGLE_SUPPORT=1 -s ASSERTIONS=2")
 endif()
 
 if(FORCE32)
