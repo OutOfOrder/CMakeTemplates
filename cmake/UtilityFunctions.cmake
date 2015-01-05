@@ -355,12 +355,19 @@ function(FindLinkedLibs target libs)
 
     foreach (lib ${lib_list})
         get_filename_component(ext ${lib} EXT)
+        string(SUBSTRING ${ext} 1 -1 ext2)
+        get_filename_component(ext2 ${ext2} EXT)
+        if(ext2)
+            set(ext ${ext2})
+        endif()
         if(TARGET ${lib})
             if(_extra)
                 FindLinkedLibs(${lib} shared_libs ${level})
             endif()
         elseif(ext STREQUAL ".framework" OR ext STREQUAL CMAKE_SHARED_LIBRARY_SUFFIX OR ext STREQUAL CMAKE_IMPORT_LIBRARY_SUFFIX)
             list(APPEND shared_libs ${lib})
+        else()
+#            message(STATUS "Skipping ${lib} -- ${ext}")
         endif()
     endforeach()
 
@@ -422,7 +429,7 @@ function(CopyDependentLibs target)
         "    get_prerequisites(\${executable} lib_list 1 0 \"\" \"\")\n"
         "    foreach(lib \${lib_list})\n"
         "      get_filename_component(lib_file \"\${lib}\" NAME)\n"
-        "      foreach(slib in \${source_libs})\n"
+        "      foreach(slib \${source_libs})\n"
         "         get_filename_component(slib_file \"\${slib}\" NAME)\n"
         "         if(lib_file STREQUAL slib_file)\n"
         "           file(COPY \"\${slib}\" DESTINATION \"\${dest}\")\n"
@@ -449,7 +456,7 @@ function(CopyDependentLibs target)
         "    else()\n"
         "      get_filename_component(lib_file \"\${lib}\" NAME)\n"
         "      set(_skip OFF)\n"
-        "      foreach(slib in \${source_libs} \${extra_libs})\n"
+        "      foreach(slib \${source_libs} \${extra_libs})\n"
         "        if(_skip)\n"
         "          set(_skip OFF)\n"
         "        elseif( (slib STREQUAL \"debug\" AND NOT USE_DEBUG) OR (slib STREQUAL \"optimized\" AND USE_DEBUG) )\n"
