@@ -119,9 +119,13 @@ function(_BuildDynamicTarget name type)
                 endif()
                 set(_files)
             elseif(_mode STREQUAL "files")
-                file(GLOB _files RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
-                    ${dir}
-                )
+                if (dir MATCHES "\\*")
+                    file(GLOB _files RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
+                        ${dir}
+                    )
+                else()
+                    set(_files ${dir})
+                endif()
                 if(_files)
                     list(APPEND _source_files
                         ${_files}
@@ -149,9 +153,19 @@ function(_BuildDynamicTarget name type)
                     ${dir}
                 )
             elseif(_mode STREQUAL "reference")
-                list(APPEND _reference
-                    ${dir}
-                )
+                if (dir MATCHES "\\*")
+                    file(GLOB _files RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
+                        ${dir}
+                    )
+                else()
+                    set(_files ${dir})
+                endif()
+                if(_files)
+                    list(APPEND _reference
+                        ${_files}
+                    )
+                endif()
+                set(_files)
             elseif(_mode STREQUAL "prefix")
                 if(IS_ABSOLUTE ${dir})
                     list(APPEND _flags
