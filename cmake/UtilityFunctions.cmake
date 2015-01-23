@@ -86,6 +86,8 @@ function(_BuildDynamicTarget name type)
             set(_mode "link")
         elseif(dir STREQUAL "PROPERTIES")
             set(_mode "properties")
+	elseif(dir STREQUAL "SHARED")
+	    set(type "shared")
         # Simple Copying files to build dir
         elseif(dir STREQUAL "COPY_FILES")
             set(_mode "copyfiles")
