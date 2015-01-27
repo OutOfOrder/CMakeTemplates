@@ -279,6 +279,11 @@ function(_BuildDynamicTarget name type)
         add_executable(${name}
             ${_source_files}
         )
+        if(LINUX)
+            set_target_properties(${name} PROPERTIES
+                LINK_FLAGS "-Wl,--allow-shlib-undefined" # Voodoo to ignore the libs that steam_api is linked to (will be resolved at runtime)
+            )
+        endif()
     else()
         add_executable(${name} MACOSX_BUNDLE WIN32
             ${_source_files}
@@ -421,7 +426,7 @@ function(FindLinkedLibs target libs)
             endif()
         elseif(ext STREQUAL ".framework" OR ext STREQUAL CMAKE_SHARED_LIBRARY_SUFFIX OR ext STREQUAL CMAKE_IMPORT_LIBRARY_SUFFIX)
             if(debug_opt)
-                message(WARNING "Not yet supported deubg/optimized build.. specify ${lib} in extras")
+                list(APPEND shared_libs ${debug_opt})
             endif()
             list(APPEND shared_libs ${lib})
         else()
@@ -459,10 +464,6 @@ function(CopyDependentLibs target)
         endif()
     endforeach()
 
-    if(_libs)
-        list(REMOVE_DUPLICATES _libs)
-        list(SORT _libs)
-    endif()
 
     # we don't sort extralibs as it may have debug;optimized entries in it
 
