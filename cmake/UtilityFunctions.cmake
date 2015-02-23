@@ -578,6 +578,10 @@ if(EMSCRIPTEN)
         PATH_SUFFIXES tools
         NO_CMAKE_FIND_ROOT_PATH
     )
+    find_program(EM_PYTHON
+        NAMES python2 python
+	NO_CMAKE_FIND_ROOT_PATH
+    )
     function(EmscriptenCreatePackage output_file out_js_file)
         set(_data_file ${CMAKE_CURRENT_BINARY_DIR}/${output_file}.data)
         set(_preload_file ${CMAKE_CURRENT_BINARY_DIR}/${output_file}.data.js)
@@ -592,9 +596,9 @@ if(EMSCRIPTEN)
                 if (_mode STREQUAL "preload")
                     list(APPEND preload_map ${entry})
 
-                    string(REGEX MATCH "^([^@]+)@?" _path "${entry}")
+                    string(REGEX REPLACE "^([^@]+)@?.*" "\\1" _path "${entry}")
 
-                    if(NOT IS_ABSOLUTE _path)
+                    if(NOT IS_ABSOLUTE ${_path})
                         set(_path ${CMAKE_CURRENT_BINARY_DIR}/${_path})
                     endif()
 
@@ -622,7 +626,7 @@ if(EMSCRIPTEN)
                 ${_packaged_files}
             WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
             COMMAND
-                python2 ${EM_FILE_PACKAGER}
+                ${EM_PYTHON} ${EM_FILE_PACKAGER}
             ARGS
                 ${output_file}.data
                 --js-output=${output_file}.data.js
@@ -632,5 +636,4 @@ if(EMSCRIPTEN)
         set_source_files_properties(${_data_file} ${_preload_file} PROPERTIES GENERATED TRUE)
         set(${out_js_file} ${_preload_file} PARENT_SCOPE)
     endfunction()
-
 endif()
