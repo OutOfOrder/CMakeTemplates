@@ -201,6 +201,8 @@ function(_BuildDynamicTarget name type)
                     file(GLOB_RECURSE _files RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
                         ${dir}/*.c
                         ${dir}/*.cpp
+                        ${dir}/*.cxx
+                        ${dir}/*.cc
                         ${dir}/*.h
                         ${dir}/*.hpp
                         ${dir}/*.inl
@@ -211,6 +213,8 @@ function(_BuildDynamicTarget name type)
                     file(GLOB _files RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
                         ${dir}/*.c
                         ${dir}/*.cpp
+                        ${dir}/*.cxx
+                        ${dir}/*.cc
                         ${dir}/*.h
                         ${dir}/*.hpp
                         ${dir}/*.inl
