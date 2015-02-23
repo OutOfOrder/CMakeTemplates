@@ -511,7 +511,7 @@ function(CopyDependentLibs target)
         "      endforeach()\n"
         "    endforeach()\n"
         "  else()\n"
-        "    message(ERROR \"App Not found? \${BUNDLE_APP}\")\n"
+        "    message(WARNING \"App Not found? \${BUNDLE_APP}\")\n"
         "  endif()\n"
         "else() # Not an OS X bundle\n"
         "  set(executable \"\${BUNDLE_APP}\")\n"
