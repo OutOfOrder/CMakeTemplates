@@ -499,8 +499,8 @@ function(CopyDependentLibs target)
     file(WRITE ${_SCRIPT_FILE}
         "# Generated Script file\n"
         "include(GetPrerequisites)\n"
-        "set(source_libs ${_libs})\n"
-        "set(extra_libs ${_extra_libs})\n"
+        "set(source_libs \"${_libs}\")\n"
+        "set(extra_libs \"${_extra_libs}\")\n"
         "\n"
         "if (APPLE) # an OS X Bundle\n"
         "  include(BundleUtilities)\n"
