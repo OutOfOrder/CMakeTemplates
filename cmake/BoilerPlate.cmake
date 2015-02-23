@@ -6,7 +6,7 @@ if(NOT BOILERPLATE_LOADED)
     set(BOILERPLATE_LOADED ON)
 
 option(FULL_WARNINGS "Enable full warnings" OFF)
-option(ENABLE_SSE4 "Enable SSE 4" OFF)
+option(ENABLE_SSE4 "Enable SSE 4" ${DEFAULT_ENABLE_SSE4})
 option(FORCE32 "Force a 32bit compile on 64bit" OFF)
 
 if("${CMAKE_SYSTEM}" MATCHES "Linux")
