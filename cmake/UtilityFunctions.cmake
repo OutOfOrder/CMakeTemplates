@@ -82,6 +82,11 @@ function(_BuildDynamicTarget name type)
             set(_mode "prefix")
         elseif(dir STREQUAL "FLAGS")
             set(_mode "flags")
+        elseif(dir STREQUAL "FEATURES")
+            if(NOT COMMAND "target_compile_features")
+                message(FATAL_ERROR "CMake 3.1+ is required to use this feature")
+            endif()
+            set(_mode ${dir})
         elseif(dir STREQUAL "LINK")
             set(_mode "link")
         elseif(dir STREQUAL "PROPERTIES")
@@ -144,6 +149,10 @@ function(_BuildDynamicTarget name type)
                 )
             elseif(_mode STREQUAL "flags")
                 list(APPEND _flags
+                    ${dir}
+                )
+            elseif(_mode STREQUAL "FEATURES")
+                list(APPEND _features
                     ${dir}
                 )
             elseif(_mode STREQUAL "link")
@@ -302,6 +311,10 @@ function(_BuildDynamicTarget name type)
         _SetDefaultScope(_definitions PRIVATE)
         target_compile_definitions(${name} ${_definitions})
     endif()
+    if(_features)
+        _SetDefaultScope(_features PRIVATE)
+        target_compile_features(${name} ${_features})
+    endif()
     if(_link_libs)
         target_link_libraries(${name} ${_link_libs})
     endif()
@@ -344,6 +357,8 @@ endfunction()
 ## DEFINES    followed by a list of compiler defines.
 ##                      These use Generator expressions (see CMAKE documentation) default is PRIVATE scoped
 ## FLAGS      followed by a list of compiler flags.
+##                      These use Generator expressions (see CMAKE documentation) default is PRIVATE scoped
+## FEATURES   followed by a list of compiler features (cmake 3.1+).
 ##                      These use Generator expressions (see CMAKE documentation) default is PRIVATE scoped
 ## PREFIX     followed by a header. Basic prefix header support..  currently only GCC/Clang is supported.
 ## LINK       followed by a list of link targets.  Can use Generator expressions (see CMAKE documentation)
