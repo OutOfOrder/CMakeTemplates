@@ -454,6 +454,9 @@ function(FindLinkedLibs target libs)
 endfunction()
 
 function(CopyDependentLibs target)
+    if(EMSCRIPTEN)
+        return()
+    endif()
     set(_mode "lib")
 
     FindLinkedLibs(${target} __libs 2)
