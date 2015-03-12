@@ -97,7 +97,7 @@ function(_BuildDynamicTarget name type)
         elseif(dir STREQUAL "COPY_FILES")
             set(_mode "copyfiles")
         # Emscripten handling
-        elseif(dir STREQUAL "ASM_FLAG")
+        elseif(dir STREQUAL "ASM_FLAG" OR dir STREQUAL "ASM_FLAGS")
             set(_mode "em_asmflag")
         elseif(dir STREQUAL "PRE_JS")
             set(_mode "em_prejs")
@@ -580,7 +580,7 @@ if(EMSCRIPTEN)
     )
     find_program(EM_PYTHON
         NAMES python2 python
-	NO_CMAKE_FIND_ROOT_PATH
+        NO_CMAKE_FIND_ROOT_PATH
     )
     function(EmscriptenCreatePackage output_file out_js_file)
         set(_data_file ${CMAKE_CURRENT_BINARY_DIR}/${output_file}.data)
@@ -599,7 +599,7 @@ if(EMSCRIPTEN)
                     string(REGEX REPLACE "^([^@]+)@?.*" "\\1" _path "${entry}")
 
                     if(NOT IS_ABSOLUTE ${_path})
-                        set(_path ${CMAKE_CURRENT_BINARY_DIR}/${_path})
+                        set(_path ${CMAKE_CURRENT_SOURCE_DIR}/${_path})
                     endif()
 
                     file(GLOB_RECURSE _files
@@ -624,7 +624,7 @@ if(EMSCRIPTEN)
                 ${_preload_file}
             DEPENDS
                 ${_packaged_files}
-            WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             COMMAND
                 ${EM_PYTHON} ${EM_FILE_PACKAGER}
             ARGS
