@@ -405,8 +405,8 @@ function(_CleanGeneratorExpressions var out_var debug_opt_var)
     set(debug_opt "")
     set(clean ${var})
     if (var MATCHES "\\$<")
-        string(REGEX REPLACE "^\\$<.+>?:(.+)>$" "\\1" clean ${var})
-        string(REGEX REPLACE "^\\$<(.+>?):.+>$" "\\1" condition ${var})
+        string(REGEX REPLACE "^\\$<(.+>|[^:]+):(.+)>$" "\\2" clean ${var})
+        string(REGEX REPLACE "\\$<(.+>|[^:]+):(.+)>" "\\1" condition ${var})
         if (condition STREQUAL "$<CONFIG:DEBUG>")
             set(debug_opt "debug")
         elseif(condition STREQUAL "$<NOT:$<CONFIG:DEBUG>>")
@@ -455,6 +455,38 @@ function(FindLinkedLibs target libs)
 
 #    message(STATUS "Target: ${target} Shared: ${shared_libs}")
     set(${libs} ${shared_libs} PARENT_SCOPE)
+endfunction()
+
+function(CopyAssets target)
+    set(_script_file ${CMAKE_CURRENT_BINARY_DIR}/${target}_copyassets.cmake)
+    file(WRITE ${_script_file}
+        "set(assets \"${ARGN}\")\n"
+        "\n"
+        "get_filename_component(asset_dir \"\${APP_TARGET}\" DIRECTORY)\n"
+        "if (APPLE) # an OS X Bundle\n"
+        "  include(BundleUtilities)\n"
+        "  get_bundle_and_executable(\"\${APP_TARGET}\" bundle executable valid)\n"
+        "  if(valid)\n"
+        "    set(asset_dir \"\${bundle}/Contents/Resources\")\n"
+        "  endif()\n"
+        "endif()\n"
+        "file(MAKE_DIRECTORY \${asset_dir})\n"
+        "foreach(_asset \${assets})\n"
+        "  string(REGEX REPLACE \"^([^@]+)@?.*\" \"\\\\1\" _source \"\${_asset}\")\n"
+        "  if (_asset MATCHES \"@\")\n"
+        "    string(REGEX REPLACE \"^([^@]+)@(.*)$\" \"\\\\2\" _dest \"\${_asset}\")\n"
+        "  else()\n"
+        "    get_filename_component(_dest \"\${_asset}\" NAME)\n"
+        "  endif()\n"
+        "  configure_file(\"\${_source}\" \"\${asset_dir}/\${_dest}\" COPYONLY)\n"
+        "endforeach()\n"
+    )
+
+    add_custom_command(TARGET ${target}
+        POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -DAPP_TARGET="$<TARGET_FILE:${target}>" -P "${_script_file}"
+        COMMENT "Copying Assets for ${target}"
+    )
 endfunction()
 
 function(CopyDependentLibs target)
@@ -599,7 +631,7 @@ if(EMSCRIPTEN)
                     string(REGEX REPLACE "^([^@]+)@?.*" "\\1" _path "${entry}")
 
                     if(NOT IS_ABSOLUTE ${_path})
-                        set(_path ${CMAKE_CURRENT_SOURCE_DIR}/${_path})
+                        set(_path ${CMAKE_CURRENT_BINARY_DIR}/${_path})
                     endif()
 
                     file(GLOB_RECURSE _files
@@ -624,7 +656,7 @@ if(EMSCRIPTEN)
                 ${_preload_file}
             DEPENDS
                 ${_packaged_files}
-            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
             COMMAND
                 ${EM_PYTHON} ${EM_FILE_PACKAGER}
             ARGS
