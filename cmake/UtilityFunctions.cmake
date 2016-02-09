@@ -280,6 +280,9 @@ function(_BuildDynamicTarget name type)
         add_library(${name} SHARED
             ${_source_files}
         )
+        set_target_properties(${name} PROPERTIES
+            MACOSX_RPATH ON
+        )
     elseif(type STREQUAL "object")
         add_library(${name} OBJECT
             ${_source_files}
