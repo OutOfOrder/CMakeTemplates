@@ -187,7 +187,7 @@ function(_BuildDynamicTarget name type)
                         PRIVATE -include ${CMAKE_CURRENT_SOURCE_DIR}/${dir}
                     )
                 else()
-                    message(FATAL_ERROR "could not find refix header")
+                    message(FATAL_ERROR "could not find prefix header")
                 endif()
             elseif(_mode STREQUAL "dirs")
                 if (dir STREQUAL ".")
@@ -322,6 +322,9 @@ function(_BuildDynamicTarget name type)
             )
         endif()
     endif()
+    set_target_properties(${name} PROPERTIES
+        SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}" # record the current source dir so target processors can resolve relative file refernces attached to the target.
+    )
     if(_include_dirs)
         _SetDefaultScope(_include_dirs PRIVATE)
         target_include_directories(${name} ${_include_dirs})
@@ -561,6 +564,10 @@ function(CopyDependentLibs target)
         "         get_filename_component(slib_file \"\${slib}\" NAME)\n"
         "         if(lib_file STREQUAL slib_file)\n"
         "           file(COPY \"\${slib}\" DESTINATION \"\${dest}\")\n"
+        "         elseif(\"\${lib_file}.framework\" STREQUAL slib_file)\n"
+        "           file(COPY \"\${slib}\" DESTINATION \"\${dest}\")\n"
+        "           file(GLOB HEADERS \"\${dest}/\${slib_file}/H*\" \"\${dest}/\${slib_file}/Versions/*/H*\")\n"
+        "           file(REMOVE_RECURSE \${HEADERS})\n"
         "         endif()\n"
         "      endforeach()\n"
         "    endforeach()\n"
