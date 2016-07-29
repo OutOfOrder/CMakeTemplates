@@ -53,9 +53,7 @@ if(APPLE)
 endif()
 
 if(EMSCRIPTEN)
-    set(PLATFORM_PREFIX             "emscripten")
 elseif(LINUX)
-    set(PLATFORM_PREFIX             "linux")
     if(CMAKE_SIZEOF_VOID_P MATCHES "8" AND NOT(FORCE32) )
         set(LIB_RPATH_DIR           "lib64")
         set_property(GLOBAL PROPERTY FIND_LIBRARY_USE_LIB64_PATHS ON)
@@ -86,10 +84,7 @@ elseif(LINUX)
     set(CMAKE_INSTALL_RPATH                 "\$ORIGIN/${LIB_RPATH_DIR}")
     set(CMAKE_INSTALL_RPATH_USE_LINK_PATH   FALSE)
 elseif(IOS)
-    set(PLATFORM_PREFIX             "ios")
 elseif(APPLE)
-    set(PLATFORM_PREFIX             "macosx")
-
     set(BIN_RPATH "@executable_path/../Frameworks")
 
     set(CMAKE_SKIP_BUILD_RPATH              TRUE)
@@ -103,9 +98,7 @@ elseif(APPLE)
         set(CMAKE_CXX_FLAGS         "${CMAKE_CXX_FLAGS} -msse4")
     endif()
 elseif(WIN32)
-    set(PLATFORM_PREFIX             "win32")
 elseif(ANDROID)
-    set(PLATFORM_PREFIX             "android")
 else()
     MESSAGE(FATAL_ERROR "Unhandled Platform")
 endif()
@@ -115,7 +108,7 @@ if(NOT CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
     message(STATUS "Exporting variables to parent scope")
 
     set(_exposed
-        LINUX LINUX_X86 LINUX_X86_64 FORCE32 PLATFORM_PREFIX
+        LINUX LINUX_X86 LINUX_X86_64 FORCE32
 
         CMAKE_C_FLAGS CMAKE_CXX_FLAGS
         CMAKE_EXE_LINKER_FLAGS_DEBUG CMAKE_EXE_LINKER_FLAGS CMAKE_SHARED_LINKER_FLAGS CMAKE_MODULE_LINKER_FLAGS
