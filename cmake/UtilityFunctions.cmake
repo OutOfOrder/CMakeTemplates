@@ -262,7 +262,7 @@ function(_BuildDynamicTarget name type)
             endif()
         endif()
     endforeach()
-    if (NOT _source_files)
+    if (NOT _source_files AND NOT (type STREQUAL "interface"))
         message(FATAL_ERROR "Could not find any sources for ${name}")
     endif()
     if(_reference)
@@ -272,7 +272,9 @@ function(_BuildDynamicTarget name type)
                 HEADER_FILE_ONLY TRUE
         )
     endif()
-    if(type STREQUAL "lib")
+    if(type STREQUAL "interface")
+        add_library(${name} INTERFACE)
+    elseif(type STREQUAL "lib")
         add_library(${name} STATIC EXCLUDE_FROM_ALL
             ${_source_files}
         )
@@ -326,9 +328,11 @@ function(_BuildDynamicTarget name type)
             set_target_properties(${name} PROPERTIES SUFFIX ".js")
         endif()
     endif()
-    set_target_properties(${name} PROPERTIES
-        SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}" # record the current source dir so target processors can resolve relative file refernces attached to the target.
-    )
+    if(NOT (type STREQUAL "interface"))
+        set_target_properties(${name} PROPERTIES
+            SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}" # record the current source dir so target processors can resolve relative file refernces attached to the target.
+        )
+    endif()
     if(_include_dirs)
         _SetDefaultScope(_include_dirs PRIVATE)
         target_include_directories(${name} ${_include_dirs})
@@ -412,6 +416,10 @@ endfunction()
 
 function(CreateLibrary name)
     _BuildDynamicTarget(${name} lib ${ARGN})
+endfunction()
+
+function(CreateInterface name)
+    _BuildDynamicTarget(${name} interface ${ARGN})
 endfunction()
 
 function(CreateProgram name)
