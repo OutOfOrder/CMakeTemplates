@@ -54,7 +54,6 @@ endif()
 
 if(EMSCRIPTEN)
     set(PLATFORM_PREFIX             "emscripten")
-    set(CMAKE_EXECUTABLE_SUFFIX     ".js")
 elseif(LINUX)
     set(PLATFORM_PREFIX             "linux")
     if(CMAKE_SIZEOF_VOID_P MATCHES "8" AND NOT(FORCE32) )

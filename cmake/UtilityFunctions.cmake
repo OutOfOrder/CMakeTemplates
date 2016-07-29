@@ -305,6 +305,8 @@ function(_BuildDynamicTarget name type)
             set_target_properties(${name} PROPERTIES
                 LINK_FLAGS "-Wl,--allow-shlib-undefined" # Voodoo to ignore the libs that steam_api is linked to (will be resolved at runtime)
             )
+        elseif(EMSCRIPTEN)
+            set_target_properties(${name} PROPERTIES SUFFIX ".html")
         endif()
     else()
         add_executable(${name} MACOSX_BUNDLE WIN32
@@ -320,6 +322,8 @@ function(_BuildDynamicTarget name type)
             set_target_properties(${name} PROPERTIES
                 LINK_FLAGS "-Wl,--allow-shlib-undefined" # Voodoo to ignore the libs that steam_api is linked to (will be resolved at runtime)
             )
+        elseif(EMSCRIPTEN)
+            set_target_properties(${name} PROPERTIES SUFFIX ".js")
         endif()
     endif()
     set_target_properties(${name} PROPERTIES
