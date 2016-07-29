@@ -439,16 +439,18 @@ function(_CleanGeneratorExpressions var out_var debug_opt_var)
     set(${out_var} ${clean} PARENT_SCOPE)
 endfunction()
 
-function(FindLinkedLibs target libs)
+function(FindLinkedLibs target libs level)
     get_target_property(lib_list ${target} INTERFACE_LINK_LIBRARIES)
     if(NOT lib_list)
         return()
     endif()
 
-    #message(STATUS "Checking ${target} :: ${lib_list}")
-    if (ARGV2 GREATER "0")
+    # message(STATUS "Checking ${target} :: ${lib_list} :: ${level}")
+    if (level GREATER "0")
         set(_extra ON)
         math(EXPR level "${ARGV2} - 1")
+    else()
+        set(_extra OFF)
     endif()
 
     foreach (lib ${lib_list})
@@ -517,7 +519,7 @@ function(CopyDependentLibs target)
     endif()
     set(_mode "lib")
 
-    FindLinkedLibs(${target} __libs 2)
+    FindLinkedLibs(${target} __libs 10)
     list(APPEND _libs ${__libs})
 
     foreach(entry ${ARGN})
@@ -527,7 +529,7 @@ function(CopyDependentLibs target)
             set(_mode "extra")
         else()
             if(_mode STREQUAL "targets")
-                FindLinkedLibs(${entry} __libs 2)
+                FindLinkedLibs(${entry} __libs 10)
                 list(APPEND _libs ${__libs})
                 set(__libs)
             elseif(_mode STREQUAL "lib")
@@ -562,19 +564,48 @@ function(CopyDependentLibs target)
         "  if(valid)\n"
         "    set(dest \"\${bundle}/Contents/Frameworks\")\n"
         "    get_prerequisites(\${executable} lib_list 1 0 \"\" \"\")\n"
+        "    set(_skipreq OFF)\n"
         "    foreach(lib \${lib_list})\n"
-        "      get_filename_component(lib_file \"\${lib}\" NAME)\n"
-        "      foreach(slib \${source_libs})\n"
-        "         get_filename_component(slib_file \"\${slib}\" NAME)\n"
-        "         if(lib_file STREQUAL slib_file)\n"
-        "           file(COPY \"\${slib}\" DESTINATION \"\${dest}\")\n"
-        "         elseif(\"\${lib_file}.framework\" STREQUAL slib_file)\n"
-        "           file(COPY \"\${slib}\" DESTINATION \"\${dest}\")\n"
-        "           file(GLOB HEADERS \"\${dest}/\${slib_file}/H*\" \"\${dest}/\${slib_file}/Versions/*/H*\")\n"
-        "           file(REMOVE_RECURSE \${HEADERS})\n"
-        "         endif()\n"
-        "      endforeach()\n"
-        "    endforeach()\n"
+        "      if(_skipreq)\n"
+        "        set(_skipreq OFF)\n"
+        "      elseif( (lib STREQUAL \"debug\" AND NOT USE_DEBUG) OR (lib STREQUAL \"optimized\" AND USE_DEBUG) )\n"
+        "        set(_skipreq ON)\n"
+        "      elseif( (lib STREQUAL \"debug\" AND USE_DEBUG) OR (lib STREQUAL \"optimized\" AND NOT USE_DEBUG) )\n"
+        "        # Splitting based on debug/optimized\n"
+        "      else()\n"
+        "        get_filename_component(lib_file \"\${lib}\" NAME)\n"
+        "        set(_skip OFF)\n"
+        "        foreach(slib \${source_libs} \${extra_libs})\n"
+        "          get_filename_component(slib_file \"\${slib}\" NAME)\n"
+        "          if(_skip)\n"
+        "            set(_skip OFF)\n"
+        "          elseif( (slib STREQUAL \"debug\" AND NOT USE_DEBUG) OR (slib STREQUAL \"optimized\" AND USE_DEBUG) )\n"
+        "            set(_skip ON)\n"
+        "          elseif( (slib STREQUAL \"debug\" AND USE_DEBUG) OR (slib STREQUAL \"optimized\" AND NOT USE_DEBUG) )\n"
+        "            # Splitting based on debug/optimized\n"
+        "          else()\n"
+        "            if(lib_file STREQUAL slib_file)\n"
+        "              message(STATUS \"Copying library: \${lib_file}\")\n"
+        "              file(COPY \"\${slib}\" DESTINATION \"\${dest}\")\n"
+        "              break()\n"
+        "            elseif(\"\${lib_file}.framework\" STREQUAL slib_file)\n"
+        "              file(COPY \"\${slib}\" DESTINATION \"\${dest}\")\n"
+        "              file(GLOB HEADERS \"\${dest}/\${slib_file}/H*\" \"\${dest}/\${slib_file}/Versions/*/H*\")\n"
+        "              file(REMOVE_RECURSE \${HEADERS})\n"
+        "              break()\n"
+        "            else()\n"
+        "              get_filename_component(slib_dir \"\${slib}\" PATH)\n"
+        "              set(slib_path \"\${slib_dir}/\${lib_file}\")\n"
+        "              if(EXISTS \${slib_path})\n"
+        "                message(STATUS \"Copying library: \${lib_file}\")\n"
+        "                execute_process(COMMAND \${CMAKE_COMMAND} -E copy \"\${slib_path}\" \"\${dest}\")\n"
+        "                break()\n"
+        "              endif()\n"
+        "            endif()\n"
+        "          endif()\n" # _skip
+        "        endforeach()\n" # source lib scan
+        "      endif()\n" # _skipreq
+        "    endforeach()\n" # required libs
         "  else()\n"
         "    message(WARNING \"App Not found? \${BUNDLE_APP}\")\n"
         "  endif()\n"
