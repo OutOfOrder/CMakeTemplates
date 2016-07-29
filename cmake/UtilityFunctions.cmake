@@ -570,7 +570,7 @@ function(CopyDependentLibs target)
         "  include(BundleUtilities)\n"
         "  get_bundle_and_executable(\"\${BUNDLE_APP}\" bundle executable valid)\n"
         "  if(valid)\n"
-        "    set(dest \"\${bundle}/Contents/Frameworks\")\n"
+        "    set(dest \"\${bundle}/Contents/Frameworks/\")\n"
         "    get_prerequisites(\${executable} lib_list 1 0 \"\" \"\")\n"
         "    set(_skipreq OFF)\n"
         "    foreach(lib \${lib_list})\n"
