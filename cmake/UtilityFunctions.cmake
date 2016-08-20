@@ -114,6 +114,10 @@ function(_BuildDynamicTarget name type)
                     file(GLOB_RECURSE _files RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
                         ${dir}/*.*
                     )
+                elseif(dir MATCHES "\\*\\*")
+                    file(GLOB_RECURSE _files RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
+                        ${dir}
+                    )
                 else()
                     file(GLOB _files RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
                         ${dir}
@@ -126,7 +130,11 @@ function(_BuildDynamicTarget name type)
                 endif()
                 set(_files)
             elseif(_mode STREQUAL "files")
-                if (dir MATCHES "\\*")
+                if (dir MATCHES "\\*\\*")
+                    file(GLOB_RECURSE _files RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
+                        ${dir}
+                    )
+                elseif (dir MATCHES "\\*")
                     file(GLOB _files RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
                         ${dir}
                     )
