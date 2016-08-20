@@ -40,7 +40,7 @@ if(NOT WIN32 AND NOT EMSCRIPTEN)
 endif()
 
 if(APPLE)
-    option(USE_LIBCPP "Use the LLVM libc++ instead of GCC libstdc++ on OS X" ON)
+    option(USE_LIBCPP "Use the LLVM libc++ instead of GCC libstdc++ on OS X" ${USE_LIBCPP_DEFAULT})
     if(USE_LIBCPP)
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++")
         set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -stdlib=libc++")
