@@ -63,6 +63,11 @@ elseif(LINUX)
         set(LIB_RPATH_DIR           "lib")
         set_property(GLOBAL PROPERTY FIND_LIBRARY_USE_LIB64_PATHS OFF)
 
+        ## Ensure default C++03 spec if using newer GCC
+        if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER 6.0)
+            set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++03")
+        endif()
+
         ### Ensure LargeFileSupport on 32bit linux
         set(CMAKE_C_FLAGS           "${CMAKE_C_FLAGS} -D_FILE_OFFSET_BITS=64 -D_LARGEFILE64_SOURCE")
         set(CMAKE_CXX_FLAGS         "${CMAKE_CXX_FLAGS} -D_FILE_OFFSET_BITS=64 -D_LARGEFILE64_SOURCE")
@@ -98,6 +103,9 @@ elseif(APPLE)
         set(CMAKE_CXX_FLAGS         "${CMAKE_CXX_FLAGS} -msse4")
     endif()
 elseif(WIN32)
+    if(CMAKE_CL_64)
+        set_property(GLOBAL PROPERTY FIND_LIBRARY_USE_LIB64_PATHS ON)
+    endif()
 elseif(ANDROID)
 else()
     MESSAGE(FATAL_ERROR "Unhandled Platform")
