@@ -54,6 +54,11 @@ endif()
 
 if(EMSCRIPTEN)
 elseif(LINUX)
+    ## Ensure default C++03 spec if using newer GCC
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER 6.0)
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++03")
+    endif()
+
     if(CMAKE_SIZEOF_VOID_P MATCHES "8" AND NOT(FORCE32) )
         set(LIB_RPATH_DIR           "lib64")
         set_property(GLOBAL PROPERTY FIND_LIBRARY_USE_LIB64_PATHS ON)
@@ -62,11 +67,6 @@ elseif(LINUX)
         set(LINUX_X86 ON)
         set(LIB_RPATH_DIR           "lib")
         set_property(GLOBAL PROPERTY FIND_LIBRARY_USE_LIB64_PATHS OFF)
-
-        ## Ensure default C++03 spec if using newer GCC
-        if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER 6.0)
-            set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++03")
-        endif()
 
         ### Ensure LargeFileSupport on 32bit linux
         set(CMAKE_C_FLAGS           "${CMAKE_C_FLAGS} -D_FILE_OFFSET_BITS=64 -D_LARGEFILE64_SOURCE")
