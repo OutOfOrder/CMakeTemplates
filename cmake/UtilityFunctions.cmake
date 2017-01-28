@@ -672,7 +672,7 @@ function(CopyDependentLibs target)
     )
     ADD_CUSTOM_COMMAND(TARGET ${target}
         POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -DBUNDLE_APP="$<TARGET_FILE:${target}>" -DLIB_RPATH_DIR="${lib_rpath_dir}" -DUSE_DEBUG=$<CONFIG:Debug> -P "${_SCRIPT_FILE}"
+        COMMAND ${CMAKE_COMMAND} -DBUNDLE_APP=$<TARGET_FILE:${target}> -DLIB_RPATH_DIR="${lib_rpath_dir}" -DUSE_DEBUG=$<CONFIG:Debug> -P "${_SCRIPT_FILE}"
     )
 endfunction()
 
