@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.8.12)
+cmake_minimum_required(VERSION 3.9)
 
 ### setup options
 ## Include guard
@@ -40,25 +40,13 @@ if(NOT WIN32 AND NOT EMSCRIPTEN)
 endif()
 
 if(APPLE)
-    option(USE_LIBCPP "Use the LLVM libc++ instead of GCC libstdc++ on OS X" ${USE_LIBCPP_DEFAULT})
-    if(USE_LIBCPP)
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++")
-        set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -stdlib=libc++")
-        set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -stdlib=libc++")
-        set(CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS} -stdlib=libc++")
-    endif()
     if (NOT CMAKE_OSX_DEPLOYMENT_TARGET)
-        set(CMAKE_OSX_DEPLOYMENT_TARGET "10.7")
+        set(CMAKE_OSX_DEPLOYMENT_TARGET "10.9")
     endif()
 endif()
 
 if(EMSCRIPTEN)
 elseif(LINUX)
-    ## Ensure default C++03 spec if using newer GCC
-    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER 6.0)
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++03")
-    endif()
-
     if(CMAKE_SIZEOF_VOID_P MATCHES "8" AND NOT(FORCE32) )
         set(LIB_RPATH_DIR           "lib64")
         set_property(GLOBAL PROPERTY FIND_LIBRARY_USE_LIB64_PATHS ON)
@@ -84,18 +72,15 @@ elseif(LINUX)
 
     set_property(GLOBAL PROPERTY LIBRARY_RPATH_DIRECTORY ${LIB_RPATH_DIR})
 
-    set(CMAKE_SKIP_BUILD_RPATH              TRUE)
-    set(CMAKE_BUILD_WITH_INSTALL_RPATH      TRUE)
+    set(CMAKE_INSTALL_NAME_DIR              "")
     set(CMAKE_INSTALL_RPATH                 "\$ORIGIN/${LIB_RPATH_DIR}")
-    set(CMAKE_INSTALL_RPATH_USE_LINK_PATH   FALSE)
-elseif(IOS)
+    set(CMAKE_BUILD_RPATH                   "\$ORIGIN/${LIB_RPATH_DIR}")
 elseif(APPLE)
     set(BIN_RPATH "@executable_path/../Frameworks")
 
-    set(CMAKE_SKIP_BUILD_RPATH              TRUE)
-    set(CMAKE_BUILD_WITH_INSTALL_RPATH      TRUE)
+    set(CMAKE_INSTALL_NAME_DIR              "")
     set(CMAKE_INSTALL_RPATH                 ${BIN_RPATH})
-    set(CMAKE_INSTALL_RPATH_USE_LINK_PATH   FALSE)
+    set(CMAKE_BUILD_RPATH                   ${BIN_RPATH})
 
     ### Enable SSE4 instructions
     if(ENABLE_SSE4)
@@ -123,7 +108,8 @@ if(NOT CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
 
         CMAKE_FIND_LIBRARY_SUFFIXES
 
-        CMAKE_SKIP_BUILD_RPATH CMAKE_BUILD_WITH_INSTALL_RPATH CMAKE_INSTALL_RPATH CMAKE_INSTALL_RPATH_USE_LINK_PATH
+        CMAKE_SKIP_BUILD_RPATH CMAKE_BUILD_WITH_INSTALL_RPATH
+        CMAKE_INSTALL_RPATH CMAKE_INSTALL_RPATH_USE_LINK_PATH
     )
 
 if(APPLE)

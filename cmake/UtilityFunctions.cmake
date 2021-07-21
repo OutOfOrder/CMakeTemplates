@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.8.12)
+cmake_minimum_required(VERSION 3.9)
 
 ### build up utility functions
 include(CheckCCompilerFlag)
@@ -90,7 +90,7 @@ function(_BuildDynamicTarget name type)
         elseif(dir STREQUAL "LINK")
             set(_mode "link")
         elseif(dir STREQUAL "DEPENDS")
-            set(_mode "depends")
+            set(_mode "dependencies")
         elseif(dir STREQUAL "PROPERTIES")
             set(_mode "properties")
         elseif(dir STREQUAL "SHARED")
@@ -169,8 +169,8 @@ function(_BuildDynamicTarget name type)
                 list(APPEND _link_libs
                     ${dir}
                 )
-            elseif(_mode STREQUAL "depends")
-                list(APPEND _depends
+            elseif(_mode STREQUAL "dependencies")
+                list(APPEND _dependencies
                     ${dir}
                 )
             elseif(_mode STREQUAL "properties")
@@ -322,7 +322,9 @@ function(_BuildDynamicTarget name type)
                 LINK_FLAGS "-Wl,--allow-shlib-undefined" # Voodoo to ignore the libs that steam_api is linked to (will be resolved at runtime)
             )
         elseif(EMSCRIPTEN)
-            set_target_properties(${name} PROPERTIES SUFFIX ".html")
+            set_target_properties(${name} PROPERTIES
+                SUFFIX ".html"
+            )
         endif()
     else()
         add_executable(${name} MACOSX_BUNDLE WIN32
@@ -371,8 +373,8 @@ function(_BuildDynamicTarget name type)
 
         target_link_libraries(${name} ${_link_libs})
     endif()
-    if(_depends)
-        add_dependencies(${name} ${_depends})
+    if(_dependencies)
+        add_dependencies(${name} ${_dependencies})
     endif()
     if(_flags)
         _SetDefaultScope(_flags PRIVATE)
